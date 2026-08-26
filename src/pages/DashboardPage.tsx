@@ -1,3 +1,4 @@
+import { PinOutcome, pinOutcomeColor, pinOutcomeLabel } from '../domain'
 import './DashboardPage.css'
 
 interface StatCardProps {
@@ -5,20 +6,12 @@ interface StatCardProps {
   value: string | number
   icon: React.ReactNode
   trend?: { value: number; label: string }
-  color?: 'primary' | 'success' | 'warning' | 'danger' | 'info'
+  variant?: 'primary' | 'success' | 'warning' | 'danger' | 'info'
 }
 
-function StatCard({ title, value, icon, trend, color = 'primary' }: StatCardProps) {
-  const colorClasses = {
-    primary: 'stat-card--primary',
-    success: 'stat-card--success',
-    warning: 'stat-card--warning',
-    danger: 'stat-card--danger',
-    info: 'stat-card--info',
-  }
-
+function StatCard({ title, value, icon, trend, variant = 'primary' }: StatCardProps) {
   return (
-    <article className={`stat-card ${colorClasses[color]}`}>
+    <article className={`stat-card stat-card--${variant}`}>
       <div className="stat-card__icon" aria-hidden="true">
         {icon}
       </div>
@@ -36,55 +29,97 @@ function StatCard({ title, value, icon, trend, color = 'primary' }: StatCardProp
   )
 }
 
-export function DashboardPage() {
-  const stats = [
-    { title: 'Total Pins', value: '1,234', icon: (
+// Static demo data (replace with real data from API)
+const stats = [
+  {
+    title: 'Total Pins',
+    value: '1,234',
+    icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
         <path d="M21 10V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3" />
         <path d="M3 14h18" />
         <path d="M12 14v8" />
         <circle cx="12" cy="12" r="3" />
       </svg>
-    ), trend: { value: 12, label: 'vs last week' }, color: 'primary' as const },
-    { title: 'Leads Generated', value: '87', icon: (
+    ),
+    trend: { value: 12, label: 'vs last week' },
+    variant: 'primary' as const,
+  },
+  {
+    title: 'Leads Generated',
+    value: '87',
+    icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
         <circle cx="12" cy="7" r="4" />
       </svg>
-    ), trend: { value: 23, label: 'vs last week' }, color: 'success' as const },
-    { title: 'Conversion Rate', value: '7.1%', icon: (
+    ),
+    trend: { value: 23, label: 'vs last week' },
+    variant: 'success' as const,
+  },
+  {
+    title: 'Conversion Rate',
+    value: '7.1%',
+    icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
         <path d="M18 20V10" />
         <path d="M12 20V4" />
         <path d="M6 20v-6" />
       </svg>
-    ), trend: { value: -2, label: 'vs last week' }, color: 'warning' as const },
-    { title: 'Active Reps', value: '12', icon: (
+    ),
+    trend: { value: -2, label: 'vs last week' },
+    variant: 'warning' as const,
+  },
+  {
+    title: 'Active Reps',
+    value: '12',
+    icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
-    ), trend: { value: 0, label: 'vs last week' }, color: 'info' as const },
-  ]
+    ),
+    trend: { value: 0, label: 'vs last week' },
+    variant: 'info' as const,
+  },
+]
 
-  const recentActivity = [
-    { time: '2 min ago', rep: 'Sarah Chen', action: 'Marked as Lead', address: '123 Hay St, Perth', outcome: 'lead' },
-    { time: '15 min ago', rep: 'James Wilson', action: 'Knocked - Not Interested', address: '456 Murray St, Perth', outcome: 'not_interested' },
-    { time: '32 min ago', rep: 'Emma Davis', action: 'Did Not Qualify', address: '789 Wellington St, Perth', outcome: 'did_not_qualify' },
-    { time: '1 hour ago', rep: 'Sarah Chen', action: 'Knocked', address: '321 Barrack St, Perth', outcome: 'knocked' },
-    { time: '2 hours ago', rep: 'Michael Brown', action: 'Not Knocked', address: '654 St Georges Tce, Perth', outcome: 'not_knocked' },
-  ]
+const recentActivity = [
+  { time: '2 min ago', rep: 'Sarah Chen', action: 'Marked as Lead', address: '123 Hay St, Perth', outcome: PinOutcome.Lead },
+  { time: '15 min ago', rep: 'James Wilson', action: 'Knocked - Not Interested', address: '456 Murray St, Perth', outcome: PinOutcome.NotInterested },
+  { time: '32 min ago', rep: 'Emma Davis', action: 'Did Not Qualify', address: '789 Wellington St, Perth', outcome: PinOutcome.DidNotQualify },
+  { time: '1 hour ago', rep: 'Sarah Chen', action: 'Knocked', address: '321 Barrack St, Perth', outcome: PinOutcome.Knocked },
+  { time: '2 hours ago', rep: 'Michael Brown', action: 'Not Knocked', address: '654 St Georges Tce, Perth', outcome: PinOutcome.NotKnocked },
+]
 
-  const outcomeColors: Record<string, string> = {
-    knocked: '#3B82F6',
-    not_knocked: '#9CA3AF',
-    not_interested: '#EF4444',
-    did_not_qualify: '#F59E0B',
-    lead: '#10B981',
-  }
+const outcomeBadgeVariant: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'secondary'> = {
+  [PinOutcome.Knocked]: 'success',
+  [PinOutcome.NotKnocked]: 'secondary',
+  [PinOutcome.NotInterested]: 'danger',
+  [PinOutcome.DidNotQualify]: 'warning',
+  [PinOutcome.Lead]: 'info',
+}
 
+// Static demo data for charts
+const outcomeDistribution = [
+  { outcome: PinOutcome.Knocked, count: 342 },
+  { outcome: PinOutcome.NotKnocked, count: 156 },
+  { outcome: PinOutcome.NotInterested, count: 89 },
+  { outcome: PinOutcome.DidNotQualify, count: 67 },
+  { outcome: PinOutcome.Lead, count: 87 },
+]
+
+const repActivity = [
+  { name: 'Sarah Chen', count: 87, percentage: 75 },
+  { name: 'James Wilson', count: 72, percentage: 62 },
+  { name: 'Emma Davis', count: 58, percentage: 50 },
+  { name: 'Michael Brown', count: 45, percentage: 39 },
+  { name: 'Lisa Park', count: 33, percentage: 28 },
+]
+
+export function DashboardPage() {
   return (
     <div className="dashboard-page">
       <header className="page__header">
@@ -124,11 +159,15 @@ export function DashboardPage() {
             <div className="chart-placeholder">
               <p className="empty-state__description">Chart: Outcomes by Type (Bar Chart)</p>
               <div className="outcome-summary">
-                {Object.entries(outcomeColors).map(([key, color]) => (
-                  <div key={key} className="outcome-summary__item">
-                    <span className="outcome-summary__color" style={{ backgroundColor: color }} aria-hidden="true"></span>
-                    <span className="outcome-summary__label">{key.replace(/_/g, ' ')}</span>
-                    <span className="outcome-summary__count">{Math.floor(Math.random() * 200) + 50}</span>
+                {outcomeDistribution.map(({ outcome, count }) => (
+                  <div key={outcome} className="outcome-summary__item">
+                    <span
+                      className="outcome-summary__color"
+                      style={{ backgroundColor: pinOutcomeColor(outcome) }}
+                      aria-hidden="true"
+                    ></span>
+                    <span className="outcome-summary__label">{pinOutcomeLabel(outcome)}</span>
+                    <span className="outcome-summary__count">{count}</span>
                   </div>
                 ))}
               </div>
@@ -136,16 +175,16 @@ export function DashboardPage() {
             <div className="chart-placeholder">
               <p className="empty-state__description">Chart: Activity by Rep (Horizontal Bar)</p>
               <div className="rep-activity">
-                {['Sarah Chen', 'James Wilson', 'Emma Davis', 'Michael Brown', 'Lisa Park'].map((rep, i) => (
+                {repActivity.map((rep, i) => (
                   <div key={i} className="rep-activity__item">
-                    <span className="rep-activity__name">{rep}</span>
+                    <span className="rep-activity__name">{rep.name}</span>
                     <div className="rep-activity__bar">
                       <div
                         className="rep-activity__fill"
-                        style={{ width: `${Math.floor(Math.random() * 80) + 20}%`, backgroundColor: '#3B82F6' }}
+                        style={{ width: `${rep.percentage}%`, backgroundColor: 'var(--asg-color-accent-gold)' }}
                       />
                     </div>
-                    <span className="rep-activity__count">{Math.floor(Math.random() * 50) + 10}</span>
+                    <span className="rep-activity__count">{rep.count}</span>
                   </div>
                 ))}
               </div>
@@ -178,14 +217,8 @@ export function DashboardPage() {
                   <td>{activity.action}</td>
                   <td>{activity.address}</td>
                   <td>
-                    <span
-                      className="badge"
-                      style={{
-                        backgroundColor: `${outcomeColors[activity.outcome]}20`,
-                        color: outcomeColors[activity.outcome],
-                      }}
-                    >
-                      {activity.outcome.replace(/_/g, ' ')}
+                    <span className={`badge badge--${outcomeBadgeVariant[activity.outcome]}`}>
+                      {pinOutcomeLabel(activity.outcome)}
                     </span>
                   </td>
                 </tr>

@@ -1,11 +1,21 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { PinOutcome, pinOutcomeOrder, pinOutcomeLabel } from '../domain'
 import './MapPage.css'
 
 export function MapPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+
+  // Use brand-styled pin colors
+  const pinColors = useMemo(() => ({
+    [PinOutcome.Knocked]: '#059669',       // Emerald (success)
+    [PinOutcome.NotKnocked]: '#6B7280',    // Slate Gray (muted)
+    [PinOutcome.NotInterested]: '#DC2626', // Red (error)
+    [PinOutcome.DidNotQualify]: '#D97706', // Amber (warning)
+    [PinOutcome.Lead]: '#B08D46',          // Muted Gold (accent)
+  }), [])
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return
@@ -84,11 +94,9 @@ export function MapPage() {
           <label htmlFor="outcome-filter" className="visually-hidden">Filter by outcome</label>
           <select id="outcome-filter" className="form-input" style={{ width: 'auto', minWidth: '180px' }}>
             <option value="">All Outcomes</option>
-            <option value="knocked">Knocked</option>
-            <option value="not_knocked">Not Knocked</option>
-            <option value="not_interested">Not Interested</option>
-            <option value="did_not_qualify">Did Not Qualify</option>
-            <option value="lead">Lead</option>
+            {pinOutcomeOrder.map((outcome) => (
+              <option key={outcome} value={outcome}>{pinOutcomeLabel(outcome)}</option>
+            ))}
           </select>
         </div>
         <div className="toolbar__group">
@@ -112,26 +120,16 @@ export function MapPage() {
       </div>
 
       <div className="map-page__legend" aria-label="Pin outcome legend">
-        <div className="legend__item">
-          <span className="legend__color" style={{ backgroundColor: '#3B82F6' }} aria-hidden="true"></span>
-          <span>Knocked</span>
-        </div>
-        <div className="legend__item">
-          <span className="legend__color" style={{ backgroundColor: '#9CA3AF' }} aria-hidden="true"></span>
-          <span>Not Knocked</span>
-        </div>
-        <div className="legend__item">
-          <span className="legend__color" style={{ backgroundColor: '#EF4444' }} aria-hidden="true"></span>
-          <span>Not Interested</span>
-        </div>
-        <div className="legend__item">
-          <span className="legend__color" style={{ backgroundColor: '#F59E0B' }} aria-hidden="true"></span>
-          <span>Did Not Qualify</span>
-        </div>
-        <div className="legend__item">
-          <span className="legend__color" style={{ backgroundColor: '#10B981' }} aria-hidden="true"></span>
-          <span>Lead</span>
-        </div>
+        {pinOutcomeOrder.map((outcome) => (
+          <div key={outcome} className="legend__item">
+            <span
+              className="legend__color"
+              style={{ backgroundColor: pinColors[outcome] }}
+              aria-hidden="true"
+            ></span>
+            <span>{pinOutcomeLabel(outcome)}</span>
+          </div>
+        ))}
       </div>
 
       <div

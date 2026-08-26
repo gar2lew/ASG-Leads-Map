@@ -1,11 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './SettingsPage.css'
 
 export function SettingsPage() {
-  const [theme, setTheme] = useState<'light' | 'dark' | 'high-contrast'>('light')
+  const [theme, setTheme] = useState<'light' | 'dark' | 'high-contrast'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('asg-theme') as 'light' | 'dark' | 'high-contrast') || 'light'
+    }
+    return 'light'
+  })
   const [notifications, setNotifications] = useState(true)
   const [autoSync, setAutoSync] = useState(true)
   const [syncInterval, setSyncInterval] = useState(15)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('asg-theme', theme)
+  }, [theme])
 
   return (
     <div className="settings-page">
