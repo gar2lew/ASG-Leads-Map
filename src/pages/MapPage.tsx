@@ -62,18 +62,20 @@ export function MapPage() {
       style: {
         version: 8,
         sources: {
-          osm: {
+          satellite: {
             type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tiles: [
+              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            ],
             tileSize: 256,
-            attribution: '&copy; OpenStreetMap contributors',
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
           },
         },
         layers: [
           {
-            id: 'osm',
+            id: 'satellite',
             type: 'raster',
-            source: 'osm',
+            source: 'satellite',
             minzoom: 0,
             maxzoom: 19,
           },
@@ -94,13 +96,117 @@ export function MapPage() {
       'top-right'
     )
 
-    // Handle map click for adding pins
-    map.on('click', handleMapClick)
+    // Long-press handler for adding pins (works on desktop and mobile)
+    let pressTimer: ReturnType<typeof setTimeout> | null = null
+    let isLongPress = false
+
+    const getLngLat = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent): maplibregl.LngLat => {
+      return e.lngLat
+    }
+
+    const startLongPress = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      if (!isAddingPin) return
+
+      isLongPress = false
+      pressTimer = setTimeout(() => {
+        isLongPress = true
+        const lngLat = getLngLat(e)
+        setPendingCoordinates({ latitude: lngLat.lat, longitude: lngLat.lng })
+        setEditingPin(null)
+        setIsModalOpen(true)
+        setIsAddingPin(false)
+        // Provide haptic feedback on mobile
+        if ('vibrate' in navigator) {
+          navigator.vibrate(10)
+        }
+      }, 500)
+
+      // Prevent map panning during long press detection
+      map.dragPan.disable()
+    }
+
+    const endLongPress = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer)
+        pressTimer = null
+      }
+      map.dragPan.enable()
+    }
+
+    const cancelLongPress = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer)
+        pressTimer = null
+      }
+      map.dragPan.enable()
+    }
+
+    // Desktop: right-click (contextmenu)
+    map.on('contextmenu', (e: maplibregl.MapMouseEvent) => {
+      e.preventDefault()
+      if (isAddingPin) {
+        const lngLat = getLngLat(e)
+        setPendingCoordinates({ latitude: lngLat.lat, longitude: lngLat.lng })
+        setEditingPin(null)
+        setIsModalOpen(true)
+        setIsAddingPin(false)
+      }
+    })
+
+    // Desktop: long left-click / Mobile: long press
+    map.on('mousedown', startLongPress)
+    map.on('touchstart', startLongPress)
+    map.on('mouseup', endLongPress)
+    map.on('touchend', endLongPress)
+    map.on('mouseout', cancelLongPress)
+    map.on('touchcancel', cancelLongPress)
+    // Cancel if map moves (panning)
+    map.on('move', cancelLongPress)
+
+    // Regular click to select pins (when not adding)
+    map.on('click', () => {
+      if (isAddingPin || isLongPress) return
+      // Let the pin click handler handle pin selection
+    })
+
+    mapRef.current = map
+
+    const clickHandler = () => {
+      if (isAddingPin || isLongPress) return
+    }
+    const contextMenuHandler = (e: maplibregl.MapMouseEvent) => {
+      e.preventDefault()
+      if (isAddingPin) {
+        const lngLat = getLngLat(e)
+        setPendingCoordinates({ latitude: lngLat.lat, longitude: lngLat.lng })
+        setEditingPin(null)
+        setIsModalOpen(true)
+        setIsAddingPin(false)
+      }
+    }
+
+    map.on('contextmenu', contextMenuHandler)
+    map.on('mousedown', startLongPress)
+    map.on('touchstart', startLongPress)
+    map.on('mouseup', endLongPress)
+    map.on('touchend', endLongPress)
+    map.on('mouseout', cancelLongPress)
+    map.on('touchcancel', cancelLongPress)
+    map.on('move', cancelLongPress)
+    map.on('click', clickHandler)
 
     mapRef.current = map
 
     return () => {
-      map.off('click', handleMapClick)
+      map.off('contextmenu', contextMenuHandler)
+      map.off('mousedown', startLongPress)
+      map.off('touchstart', startLongPress)
+      map.off('mouseup', endLongPress)
+      map.off('touchend', endLongPress)
+      map.off('mouseout', cancelLongPress)
+      map.off('touchcancel', cancelLongPress)
+      map.off('move', cancelLongPress)
+      map.off('click', clickHandler)
       map.remove()
       mapRef.current = null
       markersRef.current.clear()
@@ -112,16 +218,6 @@ export function MapPage() {
     if (!mapRef.current) return
     renderPins()
   }, [pins, outcomeFilter, repFilter, selectedPinId])
-
-  const handleMapClick = (e: maplibregl.MapMouseEvent) => {
-    if (isAddingPin) {
-      const lngLat = e.lngLat
-      setPendingCoordinates({ latitude: lngLat.lat, longitude: lngLat.lng })
-      setEditingPin(null)
-      setIsModalOpen(true)
-      setIsAddingPin(false)
-    }
-  }
 
   const handleAddPinClick = () => {
     setIsAddingPin(true)
@@ -407,7 +503,7 @@ export function MapPage() {
             <circle cx="12" cy="12" r="10" />
             <path d="M12 6v6l4 2" />
           </svg>
-          Click on the map to place a pin. Press Escape to cancel.
+          <span>Desktop: Right-click or long-press to place pin. Mobile: Long-press. Press Escape to cancel.</span>
         </div>
       )}
 
