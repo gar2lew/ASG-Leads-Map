@@ -17,6 +17,7 @@ import { useCurrentUser } from '../auth'
 import { PinModal } from '../components/PinModal'
 import { MapFeedback, type MapFeedbackValue } from '../components/MapFeedback'
 import { SelectedPinSheet } from '../components/SelectedPinSheet'
+import { createMapMarkerMarkup } from '../components/mapMarkerMarkup'
 import './MapPage.css'
 
 const PERTH_CENTER: [number, number] = [115.8605, -31.9505]
@@ -78,17 +79,10 @@ export function MapPage() {
   const createProvisionalMarker = () => {
     if (provisionalMarkerRef.current) return
     const el = document.createElement('div')
-    el.className = 'map-marker map-marker--provisional'
+    el.className = 'map-pin map-pin--provisional'
     el.style.setProperty('--marker-color', 'var(--asg-color-gold-600)')
     el.innerHTML = `
-      <div class="map-marker__inner">
-        <div class="map-marker__icon">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-          </svg>
-        </div>
-      </div>
-      <div class="map-marker__pulse" aria-hidden="true"></div>
+      <span class="map-pin__body"><span class="map-pin__core" aria-hidden="true"></span></span>
     `
     const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
     provisionalMarkerRef.current = marker
@@ -283,7 +277,7 @@ export function MapPage() {
 
   const handlePinClick = useCallback((pin: Pin) => {
     setSelectedPinId(pin.id)
-    showPopup(pin)
+    mapRef.current?.easeTo({ center: [pin.longitude, pin.latitude], offset: [-180, 0], duration: 300 })
   }, [])
 
   const editSelectedPin = () => {
@@ -428,6 +422,9 @@ export function MapPage() {
     `
   }
 
+  // The React Property Details surface replaces this legacy popup path.
+  void showPopup
+
   const renderPins = () => {
     if (!mapRef.current) return
 
@@ -444,18 +441,9 @@ export function MapPage() {
       const el = document.createElement('div')
       const color = pinOutcomeColor(pin.outcome)
 
-      el.className = `map-marker ${pin.id === selectedPinId ? 'map-marker--selected' : ''}`
+      el.className = `map-pin ${pin.id === selectedPinId ? 'map-pin--selected' : ''}`
       el.style.setProperty('--marker-color', color)
-      el.innerHTML = `
-        <div class="map-marker__inner">
-          <div class="map-marker__icon">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-            </svg>
-          </div>
-        </div>
-        <div class="map-marker__pulse" aria-hidden="true"></div>
-      `
+      el.innerHTML = createMapMarkerMarkup(pin.outcome)
 
       el.addEventListener('click', (e) => {
         e.stopPropagation()
@@ -563,12 +551,12 @@ export function MapPage() {
   return (
     <div className="map-page">
       {/* Page Header */}
-      <header className="map-page__header">
+      <header className="map-page__header premium-page-header">
         <div className="map-page__title-block">
           <h1 className="map-page__title">Field Map</h1>
           <p className="map-page__subtitle">Track visits, outcomes and leads across your territory.</p>
         </div>
-        <div className="map-page__actions">
+        <div className="map-page__actions" role="group" aria-label="Map actions">
           <button
             className="btn btn--primary map-page__add-fab"
             type="button"
@@ -622,7 +610,7 @@ export function MapPage() {
       {/* Unified Filter Bar */}
       <div className="map-page__filter-bar" role="toolbar" aria-label="Map filters">
         {/* Search - placeholder for future */}
-        <div className="map-page__filter-group" style={{ flex: 1, minWidth: 200 }}>
+        <div className="map-page__filter-group" role="search" aria-label="Map search and filters" style={{ flex: 1, minWidth: 200 }}>
           <label htmlFor="map-search" className="visually-hidden">Search address or suburb</label>
           <input
             id="map-search"

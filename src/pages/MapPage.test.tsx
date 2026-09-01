@@ -91,6 +91,7 @@ vi.mock('maplibre-gl', () => {
       
       getCenter: vi.fn(() => ({ lng: 115.8605, lat: -31.9505 })),
       getZoom: vi.fn(() => 10),
+      easeTo: vi.fn(),
       getBounds: vi.fn(() => ({
         getWest: () => 115, getEast: () => 116,
         getSouth: () => -32, getNorth: () => -31
@@ -433,6 +434,18 @@ describe('MapPage - Add Pin Workflow', () => {
     pinIdCounter = 0
     markerEventListeners.clear()
     vi.clearAllMocks()
+  })
+
+  it('uses the premium page heading treatment', async () => {
+    render(
+      <BrowserRouter>
+        <MapPage />
+      </BrowserRouter>
+    )
+
+    expect(await screen.findByRole('banner')).toHaveClass('premium-page-header')
+    expect(screen.getByRole('search', { name: /map search and filters/i })).toBeVisible()
+    expect(screen.getByRole('group', { name: /map actions/i })).toBeVisible()
   })
 
   it('should enter placement mode when ADD PIN button is clicked', async () => {
@@ -1325,9 +1338,11 @@ describe('MapPage - Selected Pin Actions', () => {
     const marker = await screen.findByRole('button', { name: /pin: 18 oceanview road/i })
     await user.click(marker)
 
-    const sheet = await screen.findByRole('complementary', { name: /selected property/i })
+    const sheet = await screen.findByRole('complementary', { name: /property details/i })
+    expect(within(sheet).getByRole('heading', { name: /18 oceanview road/i })).toBeVisible()
     expect(within(sheet).getByRole('button', { name: /update outcome/i })).toBeInTheDocument()
     expect(within(sheet).getByRole('button', { name: /edit details/i })).toBeInTheDocument()
-    expect(within(sheet).getByRole('button', { name: /delete pin/i })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: /delete pin/i })).toHaveClass('property-details__danger')
+    expect(document.querySelector('.maplibregl-popup')).not.toBeInTheDocument()
   })
 })

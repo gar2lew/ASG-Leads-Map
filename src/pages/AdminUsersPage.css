@@ -1,0 +1,206 @@
+/* ===========================================
+   ADMIN USER MANAGEMENT PAGE STYLES
+   =========================================== */
+
+.admin-users {
+  display: flex;
+  flex-direction: column;
+  gap: var(--asg-space-6);
+}
+
+.admin-users__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--asg-space-4);
+  flex-wrap: wrap;
+}
+
+.admin-users__title {
+  margin: 0;
+  font-family: var(--asg-font-serif);
+  font-size: var(--asg-text-h2);
+  color: var(--asg-color-primary-dark);
+}
+
+.admin-users__actions {
+  display: flex;
+  gap: var(--asg-space-3);
+}
+
+.admin-users__create {
+  padding: var(--asg-space-6);
+  border: 1px solid var(--asg-color-primary-light-muted);
+  border-radius: var(--asg-radius-lg);
+  background: var(--asg-color-text-light);
+  box-shadow: var(--asg-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--asg-space-4);
+  align-items: flex-start;
+}
+
+.admin-users__create-title {
+  margin: 0;
+  font-family: var(--asg-font-serif);
+  font-size: var(--asg-text-h3);
+  color: var(--asg-color-primary-dark);
+}
+
+.admin-users__create-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--asg-space-4);
+  width: 100%;
+}
+
+.admin-users__created {
+  padding: var(--asg-space-4);
+  border: 1px solid var(--asg-color-accent-gold-light);
+  border-radius: var(--asg-radius-md);
+  background: var(--asg-color-accent-gold-subtle);
+  font-family: var(--asg-font-sans);
+  font-size: var(--asg-text-body-sm);
+}
+
+.admin-users__created p {
+  margin: 0;
+}
+
+.admin-users__created code {
+  font-family: var(--asg-font-mono);
+  font-size: 0.95em;
+  background: var(--asg-color-primary-light-muted);
+  padding: 1px 4px;
+  border-radius: var(--asg-radius-sm);
+}
+
+.admin-users__password {
+  display: inline-block;
+  margin-top: var(--asg-space-2);
+  font-weight: 700;
+}
+
+.admin-users__created-note {
+  margin-top: var(--asg-space-2) !important;
+  color: var(--asg-color-text-muted);
+}
+
+.admin-users__error {
+  margin: 0;
+  padding: var(--asg-space-3) var(--asg-space-4);
+  background: var(--asg-color-danger-subtle, #fdecec);
+  color: var(--asg-color-danger, #b91c1c);
+  border: 1px solid var(--asg-color-danger-subtle, #fdecec);
+  border-radius: var(--asg-radius-md);
+  font-size: var(--asg-text-body-sm);
+  font-family: var(--asg-font-sans);
+}
+
+.admin-users__loading,
+.admin-users__empty {
+  margin: 0;
+  font-size: var(--asg-text-body-sm);
+  color: var(--asg-color-text-muted);
+  font-family: var(--asg-font-sans);
+}
+
+.admin-users__table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--asg-color-text-light);
+  border: 1px solid var(--asg-color-primary-light-muted);
+  border-radius: var(--asg-radius-lg);
+  overflow: hidden;
+  font-size: var(--asg-text-body-sm);
+  font-family: var(--asg-font-sans);
+}
+
+.admin-users__table th,
+.admin-users__table td {
+  padding: var(--asg-space-3) var(--asg-space-4);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--asg-color-primary-light-muted);
+}
+
+.admin-users__table th {
+  background: var(--asg-color-primary-light-muted);
+  color: var(--asg-color-text-dark);
+  font-weight: 600;
+}
+
+.admin-users__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-users__row--disabled .admin-users__name,
+.admin-users__row--disabled td {
+  color: var(--asg-color-text-muted);
+  opacity: 0.8;
+}
+
+.admin-users__name {
+  font-weight: 500;
+  color: var(--asg-color-text-dark);
+}
+
+.admin-users__role-select {
+  min-width: 120px;
+  padding-top: var(--asg-space-1);
+  padding-bottom: var(--asg-space-1);
+}
+
+.admin-users__status {
+  display: inline-block;
+  padding: 2px var(--asg-space-2);
+  border-radius: var(--asg-radius-full);
+  font-size: var(--asg-text-body-sm);
+  font-weight: 500;
+}
+
+.admin-users__status--active {
+  background: var(--asg-color-success-subtle, #e6f4ea);
+  color: var(--asg-color-success, #1e7e3e);
+}
+
+.admin-users__status--disabled {
+  background: var(--asg-color-danger-subtle, #fdecec);
+  color: var(--asg-color-danger, #b91c1c);
+}
+
+@media (max-width: 768px) {
+  .admin-users__table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+/* Premium user management */
+.admin-users { padding: var(--asg-space-8); color: var(--asg-text-on-dark-primary); }
+.admin-users__header { align-items: flex-end; margin-bottom: var(--asg-space-6); }
+.admin-users__eyebrow { color: var(--asg-color-gold-400); font-size: var(--asg-text-overline); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+.admin-users__title { margin: var(--asg-space-2) 0 0; color: var(--asg-text-on-dark-primary); font-family: var(--asg-font-display); font-size: clamp(2.4rem, 4vw, 3.2rem); font-weight: 600; }
+.admin-users__summary { margin: var(--asg-space-1) 0 0; color: var(--asg-text-on-dark-muted); }
+.admin-users__panel,
+.admin-users__create { overflow: hidden; color: var(--asg-text-on-light-primary); background: var(--asg-color-ivory); border: 1px solid var(--asg-border-premium); border-radius: var(--asg-radius-2xl); box-shadow: var(--asg-shadow-premium); }
+.admin-users__panel { overflow-x: auto; }
+.admin-users__table { width: 100%; background: transparent; }
+.admin-users__table th { padding: var(--asg-space-4); color: var(--asg-color-gold-700); background: var(--asg-color-gold-50); font-size: var(--asg-text-overline); letter-spacing: 0.08em; }
+.admin-users__table td { padding: var(--asg-space-4); color: #334155; border-color: var(--asg-color-gold-100); }
+.admin-users__table .admin-users__name { color: #0F172A; font-weight: 650; }
+.admin-users__role-select { min-height: 44px; background: var(--asg-color-ivory-strong); border-color: var(--asg-color-gold-200); }
+.admin-users__status { padding: var(--asg-space-1) var(--asg-space-3); font-size: var(--asg-text-caption); font-weight: 700; }
+
+@media (max-width: 700px) {
+  .admin-users { padding: var(--asg-space-4); }
+  .admin-users__header { align-items: stretch; }
+  .admin-users__panel { overflow: visible; background: transparent; border: 0; box-shadow: none; }
+  .admin-users__table,
+  .admin-users__table tbody,
+  .admin-users__table tr,
+  .admin-users__table td { display: block; width: 100%; }
+  .admin-users__table thead { display: none; }
+  .admin-users__table tr { margin-bottom: var(--asg-space-4); padding: var(--asg-space-4); background: var(--asg-color-ivory); border: 1px solid var(--asg-border-premium); border-radius: var(--asg-radius-xl); box-shadow: var(--asg-shadow-lg); }
+  .admin-users__table td { padding: var(--asg-space-2) 0; border: 0; }
+}

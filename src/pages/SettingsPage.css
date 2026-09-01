@@ -190,3 +190,13 @@
     justify-content: space-around;
   }
 }
+
+/* Premium settings surfaces */
+.settings-page .page__title { color: var(--asg-text-on-dark-primary); font-family: var(--asg-font-display); font-size: clamp(2.4rem, 4vw, 3.2rem); font-weight: 600; }
+.settings-page .page__subtitle { color: var(--asg-text-on-dark-secondary); }
+.settings-section.card { overflow: hidden; background: var(--asg-color-ivory); border: 1px solid var(--asg-border-premium); border-radius: var(--asg-radius-2xl); box-shadow: 0 16px 40px rgba(4, 12, 22, 0.15); }
+.settings-section .card__header { color: var(--asg-text-on-light-primary); background: var(--asg-color-gold-50); border-bottom-color: var(--asg-color-gold-200); }
+.settings-page .settings-section .card__title { color: #0F172A; font-family: var(--asg-font-display); font-size: 1.65rem; font-weight: 600; }
+.setting-item { border-bottom-color: var(--asg-color-gold-100); }
+.setting-item__title { color: var(--asg-text-on-light-primary); }
+.setting-item__description { color: var(--asg-text-on-light-muted); }

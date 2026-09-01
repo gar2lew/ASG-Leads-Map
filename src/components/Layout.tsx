@@ -27,7 +27,7 @@ export function Layout({ children }: LayoutProps) {
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
-      <header className="app__header" role="banner">
+      <header className="app__header layout__header" role="banner">
         <div className="header__container container">
           <NavLink to="/map" className="header__logo" aria-label="ASG Leads Map Pins - Home">
             <img
@@ -40,7 +40,7 @@ export function Layout({ children }: LayoutProps) {
             />
             <span className="header__logo-text">ASG Leads Map</span>
           </NavLink>
-          <nav className="header__nav" role="navigation" aria-label="Main navigation">
+          <nav className="header__nav" role="navigation" aria-label="Primary navigation">
             <ul className="header__nav-list">
               <li>
                 <NavLink
