@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Pin, PinOutcome } from '../domain'
@@ -11,8 +11,12 @@ import {
   savePin,
   getPinCountByOutcome,
   createPin,
+  canExportData,
 } from '../domain'
+import { useCurrentUser } from '../auth'
 import { PinModal } from '../components/PinModal'
+import { MapFeedback, type MapFeedbackValue } from '../components/MapFeedback'
+import { SelectedPinSheet } from '../components/SelectedPinSheet'
 import './MapPage.css'
 
 const PERTH_CENTER: [number, number] = [115.8605, -31.9505]
@@ -23,9 +27,12 @@ export function MapPage() {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<Map<string, HTMLElement>>(new Map())
   const popupRef = useRef<maplibregl.Popup | null>(null)
+  const provisionalMarkerRef = useRef<maplibregl.Marker | null>(null)
+  const tileErrorRef = useRef<HTMLDivElement | null>(null)
 
   const [pins, setPins] = useState<Pin[]>([])
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const [outcomeFilter, setOutcomeFilter] = useState<PinOutcome | ''>('')
   const [repFilter, setRepFilter] = useState<'all' | 'me' | 'team'>('all')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -34,6 +41,21 @@ export function MapPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [outcomeCounts, setOutcomeCounts] = useState<Record<string, number>>({})
   const [isAddingPin, setIsAddingPin] = useState(false)
+  const [showTileError, setShowTileError] = useState(false)
+  const [feedback, setFeedback] = useState<MapFeedbackValue | null>(null)
+  const currentUser = useCurrentUser()
+  const showExport = canExportData(currentUser.role)
+
+  const filteredPins = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase()
+    return pins.filter((pin) => {
+      if (outcomeFilter && pin.outcome !== outcomeFilter) return false
+      if (repFilter === 'me' && pin.createdBy !== currentUser.uid) return false
+      if (query && !pin.address?.toLocaleLowerCase().includes(query)) return false
+      return true
+    })
+  }, [currentUser.uid, outcomeFilter, pins, repFilter, searchQuery])
+  const selectedPin = pins.find((pin) => pin.id === selectedPinId) ?? null
 
   // Load pins on mount
   useEffect(() => {
@@ -53,7 +75,47 @@ export function MapPage() {
     }
   }
 
-  // Initialize map
+  const createProvisionalMarker = () => {
+    if (provisionalMarkerRef.current) return
+    const el = document.createElement('div')
+    el.className = 'map-marker map-marker--provisional'
+    el.style.setProperty('--marker-color', 'var(--asg-color-gold-600)')
+    el.innerHTML = `
+      <div class="map-marker__inner">
+        <div class="map-marker__icon">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+          </svg>
+        </div>
+      </div>
+      <div class="map-marker__pulse" aria-hidden="true"></div>
+    `
+    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+    provisionalMarkerRef.current = marker
+  }
+
+  const updateProvisionalMarker = (lngLat: maplibregl.LngLat) => {
+    if (!provisionalMarkerRef.current) {
+      createProvisionalMarker()
+    }
+    const lngLatObj: maplibregl.LngLatLike = { lng: lngLat.lng, lat: lngLat.lat }
+    provisionalMarkerRef.current!.setLngLat(lngLatObj)
+    if (!mapRef.current) return
+    try {
+      provisionalMarkerRef.current!.addTo(mapRef.current!)
+    } catch {
+      // Already added
+    }
+  }
+
+  const removeProvisionalMarker = () => {
+    if (provisionalMarkerRef.current) {
+      provisionalMarkerRef.current.remove()
+      provisionalMarkerRef.current = null
+    }
+  }
+
+  // Initialize map (runs once on mount)
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return
 
@@ -68,6 +130,7 @@ export function MapPage() {
               'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             ],
             tileSize: 256,
+            maxzoom: 19,
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
           },
         },
@@ -96,137 +159,147 @@ export function MapPage() {
       'top-right'
     )
 
-    // Long-press handler for adding pins (works on desktop and mobile)
-    let pressTimer: ReturnType<typeof setTimeout> | null = null
-    let isLongPress = false
+    mapRef.current = map
 
-    const getLngLat = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent): maplibregl.LngLat => {
-      return e.lngLat
-    }
-
-    const startLongPress = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
-      if (!isAddingPin) return
-
-      isLongPress = false
-      pressTimer = setTimeout(() => {
-        isLongPress = true
-        const lngLat = getLngLat(e)
-        setPendingCoordinates({ latitude: lngLat.lat, longitude: lngLat.lng })
-        setEditingPin(null)
-        setIsModalOpen(true)
-        setIsAddingPin(false)
-        // Provide haptic feedback on mobile
-        if ('vibrate' in navigator) {
-          navigator.vibrate(10)
+    // Test-only helper to trigger a map click for E2E tests
+    if (typeof window !== 'undefined' && import.meta.env.DEV) {
+      ;(window as any).__testTriggerMapClick = (lngLat: { lng: number; lat: number }) => {
+        if (mapRef.current) {
+          mapRef.current.fire('click', {
+            lngLat,
+            point: { x: 0, y: 0 },
+            originalEvent: new MouseEvent('click'),
+          })
         }
-      }, 500)
-
-      // Prevent map panning during long press detection
-      map.dragPan.disable()
-    }
-
-    const endLongPress = () => {
-      if (pressTimer) {
-        clearTimeout(pressTimer)
-        pressTimer = null
-      }
-      map.dragPan.enable()
-    }
-
-    const cancelLongPress = () => {
-      if (pressTimer) {
-        clearTimeout(pressTimer)
-        pressTimer = null
-      }
-      map.dragPan.enable()
-    }
-
-    // Desktop: right-click (contextmenu)
-    map.on('contextmenu', (e: maplibregl.MapMouseEvent) => {
-      e.preventDefault()
-      if (isAddingPin) {
-        const lngLat = getLngLat(e)
-        setPendingCoordinates({ latitude: lngLat.lat, longitude: lngLat.lng })
-        setEditingPin(null)
-        setIsModalOpen(true)
-        setIsAddingPin(false)
-      }
-    })
-
-    // Desktop: long left-click / Mobile: long press
-    map.on('mousedown', startLongPress)
-    map.on('touchstart', startLongPress)
-    map.on('mouseup', endLongPress)
-    map.on('touchend', endLongPress)
-    map.on('mouseout', cancelLongPress)
-    map.on('touchcancel', cancelLongPress)
-    // Cancel if map moves (panning)
-    map.on('move', cancelLongPress)
-
-    // Regular click to select pins (when not adding)
-    map.on('click', () => {
-      if (isAddingPin || isLongPress) return
-      // Let the pin click handler handle pin selection
-    })
-
-    mapRef.current = map
-
-    const clickHandler = () => {
-      if (isAddingPin || isLongPress) return
-    }
-    const contextMenuHandler = (e: maplibregl.MapMouseEvent) => {
-      e.preventDefault()
-      if (isAddingPin) {
-        const lngLat = getLngLat(e)
-        setPendingCoordinates({ latitude: lngLat.lat, longitude: lngLat.lng })
-        setEditingPin(null)
-        setIsModalOpen(true)
-        setIsAddingPin(false)
       }
     }
 
-    map.on('contextmenu', contextMenuHandler)
-    map.on('mousedown', startLongPress)
-    map.on('touchstart', startLongPress)
-    map.on('mouseup', endLongPress)
-    map.on('touchend', endLongPress)
-    map.on('mouseout', cancelLongPress)
-    map.on('touchcancel', cancelLongPress)
-    map.on('move', cancelLongPress)
-    map.on('click', clickHandler)
-
-    mapRef.current = map
-
+    const markers = markersRef.current
     return () => {
-      map.off('contextmenu', contextMenuHandler)
-      map.off('mousedown', startLongPress)
-      map.off('touchstart', startLongPress)
-      map.off('mouseup', endLongPress)
-      map.off('touchend', endLongPress)
-      map.off('mouseout', cancelLongPress)
-      map.off('touchcancel', cancelLongPress)
-      map.off('move', cancelLongPress)
-      map.off('click', clickHandler)
       map.remove()
       mapRef.current = null
-      markersRef.current.clear()
+      markers.clear()
     }
   }, [])
+
+  // Handle map tile errors
+  useEffect(() => {
+    if (!mapRef.current) return
+
+    const map = mapRef.current
+
+    const handleError = (e: unknown) => {
+      console.warn('Map tile error:', e)
+      setShowTileError(true)
+    }
+
+    map.on('error', handleError)
+
+    return () => {
+      map.off('error', handleError)
+    }
+  }, [])
+
+  // Manage map event listeners for pin placement mode
+  useEffect(() => {
+    if (!mapRef.current) return
+
+    const map = mapRef.current
+
+    // Handle map click for adding pins - simple click/tap when in placement mode
+    const handleMapClick = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      if (!isAddingPin) return
+      const lngLat = e.lngLat
+      setPendingCoordinates({ latitude: lngLat.lat, longitude: lngLat.lng })
+      setEditingPin(null)
+      setIsModalOpen(true)
+      setIsAddingPin(false)
+      removeProvisionalMarker()
+    }
+
+    // Right-click also places pin
+    const handleContextMenu = (e: maplibregl.MapMouseEvent) => {
+      e.preventDefault()
+      if (!isAddingPin) return
+      const lngLat = e.lngLat
+      setPendingCoordinates({ latitude: lngLat.lat, longitude: lngLat.lng })
+      setEditingPin(null)
+      setIsModalOpen(true)
+      setIsAddingPin(false)
+      removeProvisionalMarker()
+    }
+
+    // Show provisional marker on mouse move during placement mode
+    const handleMouseMove = (e: maplibregl.MapMouseEvent) => {
+      if (!isAddingPin) return
+      updateProvisionalMarker(e.lngLat)
+    }
+
+    // Remove provisional marker when mouse leaves map
+    const handleMouseLeave = () => {
+      removeProvisionalMarker()
+    }
+
+    // Escape key to cancel placement mode
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isAddingPin) {
+        setIsAddingPin(false)
+        removeProvisionalMarker()
+      }
+    }
+
+    if (isAddingPin) {
+      map.on('click', handleMapClick)
+      map.on('contextmenu', handleContextMenu)
+      map.on('mousemove', handleMouseMove)
+      map.on('mouseout', handleMouseLeave)
+      document.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      map.off('click', handleMapClick)
+      map.off('contextmenu', handleContextMenu)
+      map.off('mousemove', handleMouseMove)
+      map.off('mouseout', handleMouseLeave)
+      document.removeEventListener('keydown', handleKeyDown)
+      removeProvisionalMarker()
+    }
+  }, [isAddingPin])
 
   // Render pins whenever pins or filters change
   useEffect(() => {
     if (!mapRef.current) return
     renderPins()
-  }, [pins, outcomeFilter, repFilter, selectedPinId])
+  }, [filteredPins, selectedPinId])
 
   const handleAddPinClick = () => {
     setIsAddingPin(true)
+  }
+
+  const cancelPinPlacement = () => {
+    setIsAddingPin(false)
+    removeProvisionalMarker()
   }
 
   const handlePinClick = useCallback((pin: Pin) => {
     setSelectedPinId(pin.id)
     showPopup(pin)
   }, [])
+
+  const editSelectedPin = () => {
+    if (!selectedPin) return
+    setEditingPin(selectedPin)
+    setPendingCoordinates(null)
+    setIsModalOpen(true)
+    popupRef.current?.remove()
+  }
+
+  const deleteSelectedPin = async () => {
+    if (!selectedPin || !confirm('Delete this pin?')) return
+    await deletePin(selectedPin.id)
+    popupRef.current?.remove()
+    setSelectedPinId(null)
+  }
 
   const showPopup = (pin: Pin) => {
     if (!mapRef.current) return
@@ -283,7 +356,9 @@ export function MapPage() {
     return `
       <div class="map-popup" style="--marker-color: ${color};">
         <div class="map-popup__header">
-          <span class="map-popup__outcome-badge">${pinOutcomeLabel(pin.outcome)}</span>
+          <span class="map-popup__outcome-badge" style="background: ${color}20; color: ${color}; border: 1px solid ${color};">
+            ${pinOutcomeLabel(pin.outcome)}
+          </span>
         </div>
         <div class="map-popup__body">
           ${pin.address ? `
@@ -295,6 +370,7 @@ export function MapPage() {
               <span>${escapeHtml(pin.address)}</span>
             </div>
           ` : ''}
+          ${pin.outcome === 'lead' ? `
           <div class="map-popup__details">
             ${pin.contactName ? `
               <div class="map-popup__detail">
@@ -323,6 +399,7 @@ export function MapPage() {
               </div>
             ` : ''}
           </div>
+          ` : ''}
           <div class="map-popup__actions">
             <button class="map-popup__btn map-popup__btn--primary" data-action="change-outcome">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
@@ -361,14 +438,6 @@ export function MapPage() {
       popupRef.current.remove()
       popupRef.current = null
     }
-
-    // Filter pins
-    const filteredPins = pins.filter((pin) => {
-      if (outcomeFilter && pin.outcome !== outcomeFilter) return false
-      if (repFilter === 'me' && pin.createdBy !== 'current-user') return false
-      // 'team' and 'all' show all for now
-      return true
-    })
 
     // Add markers for each pin
     filteredPins.forEach((pin) => {
@@ -416,6 +485,7 @@ export function MapPage() {
 
   const handleSavePin = async (data: { latitude: number; longitude: number; outcome: PinOutcome; address?: string; notes?: string; contactName?: string; contactPhone?: string; contactEmail?: string }) => {
     setIsLoading(true)
+    const wasEditing = Boolean(editingPin)
     try {
       if (editingPin) {
         // Update existing pin
@@ -434,7 +504,7 @@ export function MapPage() {
           contactPhone: data.contactPhone ?? undefined,
           contactEmail: data.contactEmail ?? undefined,
         }
-        const newPin = createPin(createPinData, 'current-user')
+        const newPin = createPin(createPinData, currentUser.uid)
         await savePin(newPin)
         setPins((prev) => [...prev, newPin])
       }
@@ -442,9 +512,10 @@ export function MapPage() {
       setIsModalOpen(false)
       setEditingPin(null)
       setPendingCoordinates(null)
+      setFeedback({ kind: 'success', message: wasEditing ? 'Pin updated' : 'Pin saved' })
     } catch (error) {
       console.error('Failed to save pin:', error)
-      alert('Failed to save pin. Please try again.')
+      setFeedback({ kind: 'error', message: 'Failed to save pin. Please try again.' })
     } finally {
       setIsLoading(false)
     }
@@ -462,25 +533,48 @@ export function MapPage() {
     await loadPins()
   }
 
-  const filteredPins = pins.filter((pin) => {
-    if (outcomeFilter && pin.outcome !== outcomeFilter) return false
-    if (repFilter === 'me' && pin.createdBy !== 'current-user') return false
-    return true
-  })
+  const handleExportCsv = () => {
+    import('../domain/csv').then(({ exportPinsToCsv }) => {
+      const csv = exportPinsToCsv(pins)
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `asg-leads-pins-${new Date().toISOString().split('T')[0]}.csv`
+      link.click()
+      URL.revokeObjectURL(link.href)
+    })
+  }
+
+  // Outcome chip helper
+  const getOutcomeChipClass = (outcome: PinOutcome) => {
+    const base = 'outcome-chip'
+    const selected = outcomeFilter === outcome ? '--selected' : ''
+    const typeMap: Record<PinOutcome, string> = {
+      knocked: 'knocked',
+      not_knocked: 'not-knocked',
+      not_interested: 'not-interested',
+      did_not_qualify: 'did-not-qualify',
+      lead: 'lead',
+    }
+    const type = typeMap[outcome] || outcome
+    return `${base} outcome-chip--${type}${selected ? ' outcome-chip--selected' : ''}`
+  }
 
   return (
     <div className="map-page">
-      <header className="page__header">
-        <div>
-          <h1 className="page__title">Field Map</h1>
-          <p className="page__subtitle">Tap pins to update outcomes. Long press to add new pins.</p>
+      {/* Page Header */}
+      <header className="map-page__header">
+        <div className="map-page__title-block">
+          <h1 className="map-page__title">Field Map</h1>
+          <p className="map-page__subtitle">Track visits, outcomes and leads across your territory.</p>
         </div>
-        <div className="page__actions">
+        <div className="map-page__actions">
           <button
-            className="btn btn--primary"
+            className="btn btn--primary map-page__add-fab"
             type="button"
             onClick={handleAddPinClick}
             aria-pressed={isAddingPin}
+            disabled={isLoading}
           >
             <svg className="icon btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
@@ -494,85 +588,141 @@ export function MapPage() {
             </svg>
             Sync
           </button>
+          {showExport && (
+            <button className="btn btn--outline btn--sm" type="button" disabled={pins.length === 0} onClick={handleExportCsv}>
+              <svg className="icon btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+              Export CSV
+            </button>
+          )}
         </div>
       </header>
 
+      {/* Add Pin Hint Banner */}
       {isAddingPin && (
         <div className="map-page__add-hint" role="status" aria-live="polite">
           <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <circle cx="12" cy="12" r="10" />
             <path d="M12 6v6l4 2" />
           </svg>
-          <span>Desktop: Right-click or long-press to place pin. Mobile: Long-press. Press Escape to cancel.</span>
+          <span>Tap a property on the map to place the new pin. Press Escape to cancel.</span>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm map-page__cancel-placement"
+            onClick={cancelPinPlacement}
+            aria-label="Cancel pin placement"
+          >
+            Cancel
+          </button>
         </div>
       )}
 
-      <div className="map-page__toolbar toolbar" role="toolbar" aria-label="Map filters">
-        <div className="toolbar__group">
-          <label htmlFor="outcome-filter" className="visually-hidden">Filter by outcome</label>
-          <select
-            id="outcome-filter"
+      {/* Unified Filter Bar */}
+      <div className="map-page__filter-bar" role="toolbar" aria-label="Map filters">
+        {/* Search - placeholder for future */}
+        <div className="map-page__filter-group" style={{ flex: 1, minWidth: 200 }}>
+          <label htmlFor="map-search" className="visually-hidden">Search address or suburb</label>
+          <input
+            id="map-search"
+            type="search"
             className="form-input"
-            value={outcomeFilter}
-            onChange={(e) => setOutcomeFilter(e.target.value as PinOutcome | '')}
-            style={{ width: 'auto', minWidth: '180px' }}
-          >
-            <option value="">All Outcomes ({pins.length})</option>
-            {pinOutcomeOrder.map((outcome) => (
-              <option key={outcome} value={outcome}>
-                {pinOutcomeLabel(outcome)} ({outcomeCounts[outcome] || 0})
-              </option>
-            ))}
-          </select>
+            placeholder="Search address or suburb…"
+            style={{ minWidth: 200, maxWidth: 320 }}
+            aria-label="Search address or suburb"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
         </div>
-        <div className="toolbar__group">
-          <label htmlFor="rep-filter" className="visually-hidden">Filter by rep</label>
+
+        {/* Outcome Filter Chips */}
+        <div className="map-page__filter-group">
+          <span className="map-page__filter-label">Outcome</span>
+          <div className="outcome-chips" role="group" aria-label="Filter by outcome">
+            {pinOutcomeOrder.map((outcome) => (
+              <button
+                key={outcome}
+                type="button"
+                className={getOutcomeChipClass(outcome)}
+                onClick={() => setOutcomeFilter(outcomeFilter === outcome ? '' : outcome)}
+                aria-pressed={outcomeFilter === outcome}
+                aria-label={`Filter by ${pinOutcomeLabel(outcome)} (${outcomeCounts[outcome] || 0})`}
+              >
+                <span className="outcome-chip__dot" aria-hidden="true" />
+                <span>{pinOutcomeLabel(outcome)}</span>
+                <span className="outcome-chip__count">{outcomeCounts[outcome] || 0}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Rep Filter */}
+        <div className="map-page__filter-group rep-filter-wrapper">
+          <label htmlFor="rep-filter" className="map-page__filter-label">Rep</label>
           <select
             id="rep-filter"
             className="form-input"
             value={repFilter}
             onChange={(e) => setRepFilter(e.target.value as 'all' | 'me' | 'team')}
-            style={{ width: 'auto', minWidth: '180px' }}
+            style={{ minWidth: 140 }}
           >
             <option value="all">All Reps</option>
             <option value="me">My Pins</option>
             <option value="team">Team Pins</option>
           </select>
         </div>
-        <div className="toolbar__spacer" />
-        <div className="toolbar__group">
+
+        {/* Toolbar Actions */}
+        <div className="map-page__toolbar-actions">
           <span className="toolbar__count" aria-live="polite">
             Showing {filteredPins.length} of {pins.length} pins
           </span>
-          <button className="btn btn--outline btn--sm" type="button" disabled={pins.length === 0}>
-            <svg className="icon btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-            Export CSV
-          </button>
         </div>
       </div>
 
-      <div className="map-page__legend" aria-label="Pin outcome legend">
-        {pinOutcomeOrder.map((outcome) => (
-          <div key={outcome} className="legend__item">
-            <span
-              className="legend__color"
-              style={{ backgroundColor: pinOutcomeColor(outcome) }}
-              aria-hidden="true"
-            ></span>
-            <span>{pinOutcomeLabel(outcome)} ({outcomeCounts[outcome] || 0})</span>
-          </div>
-        ))}
-      </div>
+      {/* Map Container */}
+      <div className="map-page__map-wrapper">
+        <div
+          ref={mapContainerRef}
+          className="map-page__map"
+          role="application"
+          aria-label="Interactive map of sales territory"
+        />
 
-      <div
-        ref={mapContainerRef}
-        className="map-page__map"
-        role="application"
-        aria-label="Interactive map of sales territory"
-      />
+        {/* Tile Error Overlay */}
+        {showTileError && (
+          <div className="map-page__tile-error" ref={tileErrorRef} role="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <h3 className="map-page__tile-error__title">Map Tiles Unavailable</h3>
+            <p className="map-page__tile-error__message">Unable to load map imagery. Check your connection or try again later.</p>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              style={{ marginTop: 'var(--asg-space-2)' }}
+              onClick={() => { setShowTileError(false); mapRef.current?.resize(); }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        <MapFeedback feedback={feedback} onDismiss={() => setFeedback(null)} />
+
+        {selectedPin && (
+          <SelectedPinSheet
+            pin={selectedPin}
+            onUpdateOutcome={editSelectedPin}
+            onEdit={editSelectedPin}
+            onDelete={deleteSelectedPin}
+            onClose={() => setSelectedPinId(null)}
+          />
+        )}
+      </div>
 
       <PinModal
         isOpen={isModalOpen}
