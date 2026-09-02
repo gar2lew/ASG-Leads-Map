@@ -51,6 +51,7 @@ describe('PinModal - outcome-specific contact fields', () => {
     const { dialog } = await openModal(vi.fn())
 
     expect(dialog.querySelector('.pin-modal__sheet')).toBeInTheDocument()
+    expect(dialog.querySelector('.pin-modal__sheet')).toHaveClass('surface--light')
     expect(within(dialog).getByRole('button', { name: /cancel/i })).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: /save pin/i })).toBeInTheDocument()
   })

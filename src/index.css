@@ -279,7 +279,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  [data-theme="dark"] {
     /* Surface - Dark Navy */
     --asg-color-surface-100: #0B1623;
     --asg-color-surface-200: #0D1B2A;
@@ -428,6 +428,9 @@
    =========================================== */
 [data-theme="high-contrast"] {
   /* Surface */
+  --asg-color-canvas: #F5F5F5;
+  --asg-color-ivory: #FFFFFF;
+  --asg-color-ivory-strong: #FFFFFF;
   --asg-color-surface-100: #FFFFFF;
   --asg-color-surface-200: #F5F5F5;
   --asg-color-surface-300: #E0E0E0;
@@ -507,6 +510,49 @@
   --color-warning: var(--asg-color-warning);
   --color-danger: var(--asg-color-error);
   --color-info: var(--asg-color-info);
+}
+
+/* Light panels keep dark, readable type regardless of the surrounding theme. */
+.surface--light {
+  --asg-text-on-light-primary: #000000;
+  --asg-text-on-light-secondary: #1A1A1A;
+  --asg-text-on-light-muted: #333333;
+  --asg-text-on-light-placeholder: #595959;
+  --asg-text-on-light-disabled: #666666;
+  --color-text: #000000;
+  --color-text-secondary: #1A1A1A;
+  --color-text-muted: #333333;
+  color: #000000;
+}
+
+.surface--light input,
+.surface--light textarea,
+.surface--light select,
+.surface--light button {
+  color: inherit;
+}
+
+.surface--light input::placeholder,
+.surface--light textarea::placeholder {
+  color: #595959;
+  opacity: 1;
+}
+
+/* High contrast uses pale page surfaces, so premium headings must stay dark. */
+[data-theme="high-contrast"] .page__title,
+[data-theme="high-contrast"] .map-page__title,
+[data-theme="high-contrast"] .dashboard-page .page__title,
+[data-theme="high-contrast"] .settings-page .page__title {
+  color: #000000 !important;
+}
+
+[data-theme="high-contrast"] .page__subtitle,
+[data-theme="high-contrast"] .map-page__subtitle,
+[data-theme="high-contrast"] .dashboard-page .page__subtitle,
+[data-theme="high-contrast"] .settings-page .page__subtitle,
+[data-theme="high-contrast"] .app__footer,
+[data-theme="high-contrast"] .app__footer-text {
+  color: #1A1A1A !important;
 }
 
 /* ===========================================

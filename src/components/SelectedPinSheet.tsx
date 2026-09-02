@@ -14,7 +14,7 @@ export function SelectedPinSheet({ pin, onUpdateOutcome, onEdit, onDelete, onClo
   const hasContact = Boolean(pin.contactName || pin.contactPhone || pin.contactEmail)
 
   return (
-    <aside className={`selected-pin-sheet property-details property-details--${pin.outcome}`} aria-label="Property details">
+    <aside className={`selected-pin-sheet surface--light property-details property-details--${pin.outcome}`} aria-label="Property details">
       <div className="property-details__accent" aria-hidden="true" />
       <div className="property-details__handle" aria-hidden="true" />
       <button

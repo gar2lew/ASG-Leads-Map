@@ -261,7 +261,7 @@ export function PinModal({
       aria-modal="true"
       aria-labelledby="pin-modal-title"
     >
-      <div className="pin-modal pin-modal__sheet" ref={modalRef}>
+      <div className="pin-modal pin-modal__sheet surface--light" ref={modalRef}>
         <header className="pin-modal__header">
           <h2 id="pin-modal-title" className="pin-modal__title">
             {isEditing ? 'Edit Visit' : 'Add Property Visit'}
