@@ -36,6 +36,7 @@ tests/screenshots/
 
 # Local Codex and development session artefacts
 .superpowers/
+.worktrees/
 compaction context/
 leads-map-w-pins.json
 users.json
