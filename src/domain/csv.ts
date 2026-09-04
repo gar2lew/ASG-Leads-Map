@@ -1,3 +1,5 @@
+import type { Pin } from './pin'
+
 export function escapeCsvField(field: string): string {
   const needsEscaping = /[",\n\r]/.test(field)
 
@@ -30,6 +32,29 @@ export function arrayToCsv(rows: string[][]): string {
   return rows
     .map((row) => row.map(escapeCsvField).join(','))
     .join('\n')
+}
+
+export function exportPinsToCsv(pins: Pin[]): string {
+  const headers = ['id', 'latitude', 'longitude', 'outcome', 'address', 'notes', 'contactName', 'contactPhone', 'contactEmail', 'createdAt', 'updatedAt', 'createdBy', 'synced', 'syncAttempts']
+
+  const rows = pins.map(pin => [
+    pin.id,
+    pin.latitude.toString(),
+    pin.longitude.toString(),
+    pin.outcome,
+    pin.address || '',
+    pin.notes || '',
+    pin.contactName || '',
+    pin.contactPhone || '',
+    pin.contactEmail || '',
+    pin.createdAt,
+    pin.updatedAt,
+    pin.createdBy,
+    pin.synced.toString(),
+    pin.syncAttempts.toString(),
+  ])
+
+  return arrayToCsv([headers, ...rows])
 }
 
 export function csvToArray(csv: string): string[][] {

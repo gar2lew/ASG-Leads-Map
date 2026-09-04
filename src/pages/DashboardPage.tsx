@@ -1,4 +1,5 @@
-import { PinOutcome, pinOutcomeColor, pinOutcomeLabel } from '../domain'
+import { PinOutcome, pinOutcomeColor, pinOutcomeLabel, canViewReports } from '../domain'
+import { useCurrentUser } from '../auth'
 import './DashboardPage.css'
 
 interface StatCardProps {
@@ -120,6 +121,26 @@ const repActivity = [
 ]
 
 export function DashboardPage() {
+  const currentUser = useCurrentUser()
+  const hasReportAccess = canViewReports(currentUser.role)
+
+  if (!hasReportAccess) {
+    return (
+      <div className="dashboard-page">
+        <header className="page__header">
+          <div>
+            <h1 className="page__title">Dashboard</h1>
+          </div>
+        </header>
+        <section className="card">
+          <div className="card__content">
+            <p className="empty-state__description">You do not have permission to view reports.</p>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
   return (
     <div className="dashboard-page">
       <header className="page__header">

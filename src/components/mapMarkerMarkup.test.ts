@@ -8,6 +8,7 @@ describe('createMapMarkerMarkup', () => {
 
     expect(markup).toContain('class="map-pin__body"')
     expect(markup).toContain('--marker-color:#EF4444')
+    expect(markup).not.toContain('map-pin__core')
     expect(markup).not.toContain('pulse')
   })
 })

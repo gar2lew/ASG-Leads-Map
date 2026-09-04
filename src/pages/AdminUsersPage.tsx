@@ -7,15 +7,17 @@ import {
 } from '../auth'
 import {
   canManageUsers,
-  ROLE_ORDER,
   roleLabel,
   Role,
   type Role as RoleType,
 } from '../domain/roles'
 import type { CreatedUserResult, UserProfileRecord } from '../auth/types'
+import type { UpdateUserInput } from '../auth/types'
+import { UserEditor } from '../components/UserEditor'
 import './AdminUsersPage.css'
 
 const EMPTY_ROLE: RoleType = Role.Rep
+const MANAGED_ROLES: RoleType[] = [Role.Manager, Role.Rep]
 
 export function AdminUsersPage() {
   const currentUser = useCurrentUser()
@@ -32,8 +34,7 @@ export function AdminUsersPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [createdResult, setCreatedResult] = useState<CreatedUserResult | null>(null)
 
-  const [editNameUid, setEditNameUid] = useState<string | null>(null)
-  const [editNameValue, setEditNameValue] = useState('')
+  const [editingUser, setEditingUser] = useState<UserProfileRecord | null>(null)
   const [rowBusy, setRowBusy] = useState<string | null>(null)
   const [rowError, setRowError] = useState<string | null>(null)
 
@@ -86,27 +87,14 @@ export function AdminUsersPage() {
     }
   }
 
-  async function handleRoleChange(uid: string, role: RoleType) {
-    setRowBusy(uid)
+  async function handleUserSave(input: UpdateUserInput) {
+    if (!editingUser) return
+    setRowBusy(editingUser.uid)
     setRowError(null)
     try {
-      const updated = await getUserAdminService().updateUser(uid, { role })
-      setUsers((prev) => prev.map((u) => (u.uid === uid ? updated : u)))
-    } catch (error) {
-      setRowError(error instanceof Error ? error.message : 'Failed to update role.')
-    } finally {
-      setRowBusy(null)
-    }
-  }
-
-  async function handleToggleActive(record: UserProfileRecord) {
-    setRowBusy(record.uid)
-    setRowError(null)
-    try {
-      const updated = await getUserAdminService().updateUser(record.uid, {
-        active: !record.active,
-      })
-      setUsers((prev) => prev.map((u) => (u.uid === record.uid ? updated : u)))
+      const updated = await getUserAdminService().updateUser(editingUser.uid, input)
+      setUsers((prev) => prev.map((u) => (u.uid === editingUser.uid ? updated : u)))
+      setEditingUser(null)
     } catch (error) {
       setRowError(error instanceof Error ? error.message : 'Failed to update user.')
     } finally {
@@ -114,20 +102,17 @@ export function AdminUsersPage() {
     }
   }
 
-  async function handleNameSave(uid: string) {
-    const trimmed = editNameValue.trim()
-    if (!trimmed) {
-      setEditNameUid(null)
-      return
-    }
-    setRowBusy(uid)
+  async function handlePasswordReset(): Promise<string> {
+    if (!editingUser) throw new Error('No user selected.')
+    setRowBusy(editingUser.uid)
     setRowError(null)
     try {
-      const updated = await getUserAdminService().updateUser(uid, { displayName: trimmed })
-      setUsers((prev) => prev.map((u) => (u.uid === uid ? updated : u)))
-      setEditNameUid(null)
+      const result = await getUserAdminService().resetUserPassword(editingUser.uid)
+      return result.temporaryPassword
     } catch (error) {
-      setRowError(error instanceof Error ? error.message : 'Failed to update name.')
+      const message = error instanceof Error ? error.message : 'Failed to reset password.'
+      setRowError(message)
+      throw error
     } finally {
       setRowBusy(null)
     }
@@ -206,7 +191,7 @@ export function AdminUsersPage() {
                 value={createRole}
                 onChange={(event) => setCreateRole(event.target.value as RoleType)}
               >
-                {ROLE_ORDER.map((role) => (
+                {MANAGED_ROLES.map((role) => (
                   <option key={role} value={role}>
                     {roleLabel(role)}
                   </option>
@@ -286,86 +271,31 @@ export function AdminUsersPage() {
           </thead>
           <tbody>
             {users.map((user) => {
-              const isSelf = user.uid === currentUser.uid
               return (
                 <tr key={user.uid} className={`admin-users__row ${user.active ? '' : 'admin-users__row--disabled'}`}>
-                  <td>
-                    {editNameUid === user.uid ? (
-                      <>
-                        <input
-                          className="form-input"
-                          value={editNameValue}
-                          aria-label={`Edit name for ${user.email}`}
-                          onChange={(event) => setEditNameValue(event.target.value)}
-                        />
-                        <button
-                          className="btn btn--ghost btn--sm"
-                          type="button"
-                          onClick={() => void handleNameSave(user.uid)}
-                          disabled={rowBusy === user.uid}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="btn btn--ghost btn--sm"
-                          type="button"
-                          onClick={() => setEditNameUid(null)}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <span className="admin-users__name">{user.displayName}</span>
-                    )}
+                  <td data-label="Name">
+                    <span className="admin-users__name">{user.displayName}</span>
                   </td>
-                  <td>{user.email}</td>
-                  <td>
-                    <select
-                      className="form-input admin-users__role-select"
-                      value={user.role}
-                      aria-label={`Role for ${user.email}`}
-                      disabled={isSelf || rowBusy === user.uid}
-                      onChange={(event) => void handleRoleChange(user.uid, event.target.value as RoleType)}
-                    >
-                      {ROLE_ORDER.map((role) => (
-                        <option key={role} value={role}>
-                          {roleLabel(role)}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>{user.teamId ?? '—'}</td>
-                  <td>
+                  <td data-label="Email">{user.email}</td>
+                  <td data-label="Role"><span className="admin-users__role">{roleLabel(user.role)}</span></td>
+                  <td data-label="Team">{user.teamId ?? '—'}</td>
+                  <td data-label="Status">
                     <span className={`admin-users__status ${user.active ? 'admin-users__status--active' : 'admin-users__status--disabled'}`}>
                       {user.active ? 'Active' : 'Disabled'}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Actions">
                     <button
                       className="btn btn--ghost btn--sm"
                       type="button"
-                      disabled={isSelf || rowBusy === user.uid}
+                      disabled={rowBusy === user.uid}
                       onClick={() => {
-                        if (editNameUid === user.uid) {
-                          setEditNameUid(null)
-                        } else {
-                          setEditNameUid(user.uid)
-                          setEditNameValue(user.displayName)
-                        }
+                        setRowError(null)
+                        setEditingUser(user)
                       }}
                     >
-                      Edit name
+                      Edit user
                     </button>
-                    {!isSelf && (
-                      <button
-                        className="btn btn--ghost btn--sm"
-                        type="button"
-                        disabled={rowBusy === user.uid}
-                        onClick={() => void handleToggleActive(user)}
-                      >
-                        {user.active ? 'Deactivate' : 'Activate'}
-                      </button>
-                    )}
                   </td>
                 </tr>
               )
@@ -373,6 +303,17 @@ export function AdminUsersPage() {
           </tbody>
         </table>
         </div>
+      )}
+      {editingUser && (
+        <UserEditor
+          user={editingUser}
+          isProtected={editingUser.role === Role.SuperAdmin}
+          busy={rowBusy === editingUser.uid}
+          error={rowError}
+          onClose={() => setEditingUser(null)}
+          onSave={handleUserSave}
+          onResetPassword={handlePasswordReset}
+        />
       )}
     </section>
   )

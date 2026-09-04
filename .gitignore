@@ -30,6 +30,15 @@ pnpm-debug.log*
 
 # Testing
 coverage/
+playwright-report/
+test-results/
+tests/screenshots/
+
+# Local Codex and development session artefacts
+.superpowers/
+compaction context/
+leads-map-w-pins.json
+users.json
 
 # TypeScript cache
 *.tsbuildinfo
@@ -37,3 +46,5 @@ node_modules/.tmp/
 
 # Vercel
 .vercel
+.vercel
+.env*

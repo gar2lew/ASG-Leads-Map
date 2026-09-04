@@ -28,6 +28,18 @@ interface PinModalProps {
 
 export function PinModal({
   isOpen,
+  ...props
+}: PinModalProps) {
+  if (!isOpen) return null
+
+  const modalKey = props.initialPin
+    ? `pin-${props.initialPin.id}`
+    : `new-${props.initialCoordinates?.latitude ?? ''}-${props.initialCoordinates?.longitude ?? ''}`
+
+  return <PinModalContent key={modalKey} isOpen={isOpen} {...props} />
+}
+
+function PinModalContent({
   onClose,
   onSave,
   initialPin = null,
@@ -36,18 +48,18 @@ export function PinModal({
 }: PinModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const firstInputRef = useRef<HTMLInputElement>(null)
-  const [outcome, setOutcome] = useState<PinOutcome>(DEFAULT_PIN_OUTCOME)
-  const [address, setAddress] = useState('')
-  const [notes, setNotes] = useState('')
-  const [contactName, setContactName] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
-  const [contactEmail, setContactEmail] = useState('')
+  const [outcome, setOutcome] = useState<PinOutcome>(initialPin?.outcome ?? DEFAULT_PIN_OUTCOME)
+  const [address, setAddress] = useState(initialPin?.address ?? '')
+  const [notes, setNotes] = useState(initialPin?.notes ?? '')
+  const [contactName, setContactName] = useState(initialPin?.contactName ?? '')
+  const [contactPhone, setContactPhone] = useState(initialPin?.contactPhone ?? '')
+  const [contactEmail, setContactEmail] = useState(initialPin?.contactEmail ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const [isGeocoding, setIsGeocoding] = useState(false)
+  const [isGeocoding, setIsGeocoding] = useState(!initialPin && Boolean(initialCoordinates))
   const [geocodingError, setGeocodingError] = useState<string | null>(null)
   const [addressConfirmed, setAddressConfirmed] = useState(false)
-  const [addressSource, setAddressSource] = useState<'reverse-geocode' | 'manual' | ''>('')
+  const [addressSource, setAddressSource] = useState<'reverse-geocode' | 'manual' | ''>(initialPin ? 'manual' : '')
   const [addressConfidence, setAddressConfidence] = useState<AddressConfidence | ''>('')
   const [manualComponents, setManualComponents] = useState<GeocodingComponents | null>(null)
   const [houseNumber, setHouseNumber] = useState('')
@@ -92,92 +104,57 @@ export function PinModal({
   }, [])
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-      if (initialPin) {
-        setOutcome(initialPin.outcome)
-        setAddress(initialPin.address ?? '')
-        setNotes(initialPin.notes ?? '')
-        setContactName(initialPin.contactName ?? '')
-        setContactPhone(initialPin.contactPhone ?? '')
-        setContactEmail(initialPin.contactEmail ?? '')
-        setAddressSource('manual')
-        setAddressConfidence('')
-        setManualComponents(null)
-        setHouseNumber('')
-        setShowFullAddressEdit(false)
-      } else {
-        setOutcome(DEFAULT_PIN_OUTCOME)
-        setAddress('')
-        setNotes('')
-        setContactName('')
-        setContactPhone('')
-        setContactEmail('')
-        setAddressSource('')
-        setAddressConfidence('')
-        setManualComponents(null)
-        setHouseNumber('')
-        setShowFullAddressEdit(false)
-      }
-      setErrors({})
-      setAddressConfirmed(false)
-      setGeocodingError(null)
+    document.body.style.overflow = 'hidden'
+    const focusTimer = window.setTimeout(() => firstInputRef.current?.focus(), 100)
 
-      if (!isEditing && initialCoordinates) {
-        const requestId = ++geocodeRequestIdRef.current
-        abortControllerRef.current = new AbortController()
-        setIsGeocoding(true)
+    if (!isEditing && initialCoordinates) {
+      const requestId = ++geocodeRequestIdRef.current
+      abortControllerRef.current = new AbortController()
 
-        reverseGeocode(initialCoordinates.latitude, initialCoordinates.longitude, abortControllerRef.current.signal)
-          .then((result) => {
-            if (requestId === geocodeRequestIdRef.current) {
-              const resolvedAddress = result && typeof result.address === 'string' && result.address.length > 0
-                ? result.address
-                : 'Address not found'
-              setAddress(resolvedAddress)
-              setAddressSource('reverse-geocode')
-              setAddressConfidence(result.confidence ?? 'direct')
-              setManualComponents(
-                canCompleteManualHouseNumber(result.components) ? (result.components ?? null) : null
-              )
-              setHouseNumber('')
-              setShowFullAddressEdit(false)
-              setIsGeocoding(false)
-              setGeocodingError(null)
-            }
-          })
-          .catch((error) => {
-            if (requestId === geocodeRequestIdRef.current && error.name !== 'AbortError') {
-              setGeocodingError('Address could not be detected automatically. Enter the property address below.')
-              setIsGeocoding(false)
-            }
-          })
-      }
-
-      setTimeout(() => firstInputRef.current?.focus(), 100)
-    } else {
-      document.body.style.overflow = ''
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
+      reverseGeocode(initialCoordinates.latitude, initialCoordinates.longitude, abortControllerRef.current.signal)
+        .then((result) => {
+          if (requestId === geocodeRequestIdRef.current) {
+            const resolvedAddress = result && typeof result.address === 'string' && result.address.length > 0
+              ? result.address
+              : 'Address not found'
+            setAddress(resolvedAddress)
+            setAddressSource('reverse-geocode')
+            setAddressConfidence(result.confidence ?? 'direct')
+            setManualComponents(
+              canCompleteManualHouseNumber(result.components) ? (result.components ?? null) : null
+            )
+            setHouseNumber('')
+            setShowFullAddressEdit(false)
+            setIsGeocoding(false)
+            setGeocodingError(null)
+          }
+        })
+        .catch((error) => {
+          if (requestId === geocodeRequestIdRef.current && error.name !== 'AbortError') {
+            setGeocodingError('Address could not be detected automatically. Enter the property address below.')
+            setIsGeocoding(false)
+          }
+        })
     }
+
     return () => {
+      window.clearTimeout(focusTimer)
       document.body.style.overflow = ''
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
     }
-  }, [isOpen, initialPin, initialCoordinates, isEditing])
+  }, [initialCoordinates, isEditing])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape') {
         onClose()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
+  }, [onClose])
 
   const validateForm = (): boolean => {
     const addressValue = typeof address === 'string' ? address : ''
@@ -250,8 +227,6 @@ export function PinModal({
     !addressValue.trim() ||
     !addressConfirmed ||
     (isLead && (!contactName.trim() || !contactPhone.trim() || !isValidAustralianMobile(contactPhone.trim())))
-
-  if (!isOpen) return null
 
   return (
     <div

@@ -1,0 +1,10 @@
+export { AuthProvider } from './AuthProvider'
+export { useAuth, useCurrentUser } from './AuthContext'
+export { getAuthService, getUserAdminService, isDevAuthActive } from './services'
+export { AuthError, isAuthError } from './types'
+export type { AuthStatus, AuthService, UserAdminService, CreateUserInput, UpdateUserInput, UserProfileRecord, CreatedUserResult } from './types'
+// Legacy dev-harness exports kept for tooling, tests and E2E fixtures.
+export { getCurrentUser, setCurrentUserRole, DEV_USERS, ASG_DEV_ROLE_KEY } from './currentUser'
+export type { CurrentUser } from '../domain/roles'
+export { Role, roleLabel, isValidRole, hasCapability, canViewReports, canExportData, canViewTeam, canAssignAreas, canManageUsers, canManageSettings, canManageIntegrations } from '../domain/roles'
+export type { Capability } from '../domain/roles'

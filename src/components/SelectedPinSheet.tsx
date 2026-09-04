@@ -35,7 +35,8 @@ export function SelectedPinSheet({ pin, onUpdateOutcome, onEdit, onDelete, onClo
       <section className="property-details__section" aria-labelledby="visit-details-heading">
         <h3 id="visit-details-heading">Visit details</h3>
         <dl className="property-details__facts">
-          <div><dt>Outcome</dt><dd>{pinOutcomeLabel(pin.outcome)}</dd></div>
+          <div><dt>Recorded by</dt><dd>{pin.createdBy}</dd></div>
+          <div><dt>Visit date</dt><dd>{new Date(pin.createdAt).toLocaleDateString('en-AU')}</dd></div>
           <div><dt>Last updated</dt><dd>{new Date(pin.updatedAt).toLocaleDateString('en-AU')}</dd></div>
         </dl>
       </section>

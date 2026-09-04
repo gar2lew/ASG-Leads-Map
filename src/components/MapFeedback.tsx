@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import './MapFeedback.css'
 
 export interface MapFeedbackValue {
@@ -11,6 +12,12 @@ interface MapFeedbackProps {
 }
 
 export function MapFeedback({ feedback, onDismiss }: MapFeedbackProps) {
+  useEffect(() => {
+    if (feedback?.kind !== 'success') return
+    const timer = window.setTimeout(onDismiss, 3000)
+    return () => window.clearTimeout(timer)
+  }, [feedback, onDismiss])
+
   if (!feedback) return null
 
   return (

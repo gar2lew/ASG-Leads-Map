@@ -1,0 +1,15 @@
+.user-editor__overlay { position: fixed; inset: 0; z-index: var(--asg-z-modal); display: flex; justify-content: flex-end; background: rgba(4, 12, 22, 0.58); backdrop-filter: blur(6px); }
+.user-editor { width: min(480px, 100%); height: 100%; overflow-y: auto; color: #000; background: var(--asg-color-ivory-strong); box-shadow: -24px 0 60px rgba(4, 12, 22, 0.24); }
+.user-editor__header { display: flex; justify-content: space-between; gap: var(--asg-space-4); padding: var(--asg-space-8) var(--asg-space-7) var(--asg-space-5); border-bottom: 1px solid var(--asg-color-gold-200); }
+.user-editor__header h2 { margin: var(--asg-space-1) 0; font: 600 2rem/1.05 var(--asg-font-display); }
+.user-editor__header p { margin: 0; color: var(--asg-text-on-light-muted); }
+.user-editor__eyebrow { color: var(--asg-color-gold-700); font-size: var(--asg-text-overline); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.user-editor__close { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; font-size: 1.5rem; cursor: pointer; }
+.user-editor__form { display: grid; gap: var(--asg-space-4); padding: var(--asg-space-6) var(--asg-space-7); }
+.user-editor__form > label { display: grid; gap: var(--asg-space-2); color: #000; font-weight: 650; }
+.user-editor__hint { margin: 0; color: var(--asg-text-on-light-muted); font-size: var(--asg-text-body-sm); }
+.user-editor__password { display: grid; gap: var(--asg-space-3); margin-top: var(--asg-space-2); padding: var(--asg-space-4); background: var(--asg-color-gold-50); border: 1px solid var(--asg-color-gold-200); border-radius: var(--asg-radius-xl); }
+.user-editor__password p { margin: var(--asg-space-1) 0 0; color: var(--asg-text-on-light-muted); font-size: var(--asg-text-body-sm); }
+.user-editor__temporary-password { display: block; padding: var(--asg-space-3); overflow-wrap: anywhere; color: #000; background: #fff; border: 1px solid var(--asg-color-gold-300); border-radius: var(--asg-radius-lg); font-size: 1rem; }
+.user-editor__actions { display: flex; justify-content: flex-end; gap: var(--asg-space-3); padding-top: var(--asg-space-4); border-top: 1px solid var(--asg-color-gold-200); }
+@media (max-width: 600px) { .user-editor { width: 100%; } .user-editor__header, .user-editor__form { padding-right: var(--asg-space-5); padding-left: var(--asg-space-5); } }

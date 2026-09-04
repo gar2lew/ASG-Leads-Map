@@ -303,7 +303,7 @@ vi.mock('../domain', async () => {
     },
     DEFAULT_PIN_OUTCOME: 'not_knocked',
     reverseGeocode: mockReverseGeocode,
-    canExportData: (role: string) => role === 'admin' || role === 'manager',
+    canExportData: (role: string) => role === 'super_admin' || role === 'manager',
     requiresContactDetails: (outcome: string) => outcome === 'lead',
     requiresContactName: (outcome: string) => outcome === 'lead',
     requiresContactMobile: (outcome: string) => outcome === 'lead',
@@ -344,7 +344,7 @@ vi.mock('../auth', () => ({
     name: 'Test Admin',
     displayName: 'Test Admin',
     email: 'admin@asg.local',
-    role: 'admin',
+    role: 'super_admin',
     active: true,
   }),
 }))
@@ -360,7 +360,7 @@ const PERTH_TEST_COORDS = { lng: 115.8605, lat: -31.9505 }
 // ============================================
 
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
+import { act, render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { MapPage } from '../pages/MapPage'
@@ -446,6 +446,32 @@ describe('MapPage - Add Pin Workflow', () => {
     expect(await screen.findByRole('banner')).toHaveClass('premium-page-header')
     expect(screen.getByRole('search', { name: /map search and filters/i })).toBeVisible()
     expect(screen.getByRole('group', { name: /map actions/i })).toBeVisible()
+  })
+
+  it('keeps map controls usable when tiles fail', async () => {
+    const user = userEvent.setup()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    render(
+      <BrowserRouter>
+        <MapPage />
+      </BrowserRouter>
+    )
+
+    await screen.findByRole('button', { name: /filter by knocked/i })
+    act(() => {
+      getMapInstance()._triggerEvent('error', { error: new Error('Network unavailable') })
+    })
+
+    const notice = await screen.findByRole('alert')
+    expect(notice).toHaveTextContent(/map tiles unavailable/i)
+    expect(warn).toHaveBeenCalledWith('Map tile unavailable:', 'Network unavailable')
+
+    await user.click(screen.getByRole('button', { name: /dismiss map tile warning/i }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    const filter = screen.getByRole('button', { name: /filter by knocked/i })
+    await user.click(filter)
+    expect(filter).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('should enter placement mode when ADD PIN button is clicked', async () => {

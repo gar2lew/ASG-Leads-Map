@@ -12,6 +12,7 @@ import {
   getPinCountByOutcome,
   createPin,
   canExportData,
+  deletePin as deletePinFromStorage,
 } from '../domain'
 import { useCurrentUser } from '../auth'
 import { PinModal } from '../components/PinModal'
@@ -23,11 +24,22 @@ import './MapPage.css'
 const PERTH_CENTER: [number, number] = [115.8605, -31.9505]
 const PERTH_ZOOM = 10
 
+function mapTileErrorMessage(event: unknown): string {
+  if (event instanceof Error) return event.message
+  if (typeof event === 'object' && event !== null && 'error' in event) {
+    const error = (event as { error?: unknown }).error
+    if (error instanceof Error) return error.message
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      const message = (error as { message?: unknown }).message
+      if (typeof message === 'string') return message
+    }
+  }
+  return 'Map tile request failed'
+}
 export function MapPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<Map<string, HTMLElement>>(new Map())
-  const popupRef = useRef<maplibregl.Popup | null>(null)
   const provisionalMarkerRef = useRef<maplibregl.Marker | null>(null)
   const tileErrorRef = useRef<HTMLDivElement | null>(null)
 
@@ -58,13 +70,7 @@ export function MapPage() {
   }, [currentUser.uid, outcomeFilter, pins, repFilter, searchQuery])
   const selectedPin = pins.find((pin) => pin.id === selectedPinId) ?? null
 
-  // Load pins on mount
-  useEffect(() => {
-    loadPins()
-  }, [])
-
-  const loadPins = async () => {
-    setIsLoading(true)
+  const loadPins = useCallback(async () => {
     try {
       const [loadedPins, counts] = await Promise.all([getAllPins(), getPinCountByOutcome()])
       setPins(loadedPins)
@@ -74,7 +80,13 @@ export function MapPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  // Load pins on mount
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- synchronize the initial view with IndexedDB
+    void loadPins()
+  }, [loadPins])
 
   const createProvisionalMarker = () => {
     if (provisionalMarkerRef.current) return
@@ -183,7 +195,7 @@ export function MapPage() {
     const map = mapRef.current
 
     const handleError = (e: unknown) => {
-      console.warn('Map tile error:', e)
+      console.warn('Map tile unavailable:', mapTileErrorMessage(e))
       setShowTileError(true)
     }
 
@@ -260,12 +272,6 @@ export function MapPage() {
     }
   }, [isAddingPin])
 
-  // Render pins whenever pins or filters change
-  useEffect(() => {
-    if (!mapRef.current) return
-    renderPins()
-  }, [filteredPins, selectedPinId])
-
   const handleAddPinClick = () => {
     setIsAddingPin(true)
   }
@@ -285,156 +291,20 @@ export function MapPage() {
     setEditingPin(selectedPin)
     setPendingCoordinates(null)
     setIsModalOpen(true)
-    popupRef.current?.remove()
   }
 
   const deleteSelectedPin = async () => {
     if (!selectedPin || !confirm('Delete this pin?')) return
     await deletePin(selectedPin.id)
-    popupRef.current?.remove()
     setSelectedPinId(null)
   }
 
-  const showPopup = (pin: Pin) => {
-    if (!mapRef.current) return
-
-    if (popupRef.current) {
-      popupRef.current.remove()
-    }
-
-    const color = pinOutcomeColor(pin.outcome)
-
-    const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true, offset: 25 })
-      .setLngLat([pin.longitude, pin.latitude])
-      .setHTML(renderPopupHTML(pin, color))
-      .addTo(mapRef.current)
-
-    popupRef.current = popup
-
-    // Attach event listeners after popup is added
-    setTimeout(() => attachPopupListeners(pin), 0)
-  }
-
-  const attachPopupListeners = (pin: Pin) => {
-    const popupElement = document.querySelector('.map-popup')
-    if (!popupElement) return
-
-    const editBtn = popupElement.querySelector('[data-action="edit"]')
-    const deleteBtn = popupElement.querySelector('[data-action="delete"]')
-    const changeOutcomeBtn = popupElement.querySelector('[data-action="change-outcome"]')
-
-    editBtn?.addEventListener('click', () => {
-      setEditingPin(pin)
-      setPendingCoordinates(null)
-      setIsModalOpen(true)
-      popupRef.current?.remove()
-    })
-
-    deleteBtn?.addEventListener('click', async () => {
-      if (confirm('Delete this pin?')) {
-        await deletePin(pin.id)
-        popupRef.current?.remove()
-        setSelectedPinId(null)
-      }
-    })
-
-    changeOutcomeBtn?.addEventListener('click', () => {
-      setEditingPin(pin)
-      setPendingCoordinates(null)
-      setIsModalOpen(true)
-      popupRef.current?.remove()
-    })
-  }
-
-  const renderPopupHTML = (pin: Pin, color: string): string => {
-    return `
-      <div class="map-popup" style="--marker-color: ${color};">
-        <div class="map-popup__header">
-          <span class="map-popup__outcome-badge" style="background: ${color}20; color: ${color}; border: 1px solid ${color};">
-            ${pinOutcomeLabel(pin.outcome)}
-          </span>
-        </div>
-        <div class="map-popup__body">
-          ${pin.address ? `
-            <div class="map-popup__address">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              <span>${escapeHtml(pin.address)}</span>
-            </div>
-          ` : ''}
-          ${pin.outcome === 'lead' ? `
-          <div class="map-popup__details">
-            ${pin.contactName ? `
-              <div class="map-popup__detail">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span>${escapeHtml(pin.contactName)}</span>
-              </div>
-            ` : ''}
-            ${pin.contactPhone ? `
-              <div class="map-popup__detail">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                </svg>
-                <span>${escapeHtml(pin.contactPhone)}</span>
-              </div>
-            ` : ''}
-            ${pin.contactEmail ? `
-              <div class="map-popup__detail">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
-                <span>${escapeHtml(pin.contactEmail)}</span>
-              </div>
-            ` : ''}
-          </div>
-          ` : ''}
-          <div class="map-popup__actions">
-            <button class="map-popup__btn map-popup__btn--primary" data-action="change-outcome">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-              Change Outcome
-            </button>
-            <button class="map-popup__btn map-popup__btn--secondary" data-action="edit">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-              Edit Details
-            </button>
-            <button class="map-popup__btn map-popup__btn--danger" data-action="delete">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    `
-  }
-
-  // The React Property Details surface replaces this legacy popup path.
-  void showPopup
-
-  const renderPins = () => {
+  const renderPins = useCallback(() => {
     if (!mapRef.current) return
 
     // Clear existing markers
     markersRef.current.forEach((element) => element.remove())
     markersRef.current.clear()
-    if (popupRef.current) {
-      popupRef.current.remove()
-      popupRef.current = null
-    }
 
     // Add markers for each pin
     filteredPins.forEach((pin) => {
@@ -469,7 +339,13 @@ export function MapPage() {
 
       markersRef.current.set(pin.id, el)
     })
-  }
+  }, [filteredPins, handlePinClick, selectedPinId])
+
+  // Render pins whenever pins or filters change
+  useEffect(() => {
+    if (!mapRef.current) return
+    renderPins()
+  }, [renderPins])
 
   const handleSavePin = async (data: { latitude: number; longitude: number; outcome: PinOutcome; address?: string; notes?: string; contactName?: string; contactPhone?: string; contactEmail?: string }) => {
     setIsLoading(true)
@@ -516,8 +392,7 @@ export function MapPage() {
     }
     // For now just remove locally
     setPins((prev) => prev.filter((p) => p.id !== id))
-    const { deletePin: deleteFromStorage } = await import('../domain/pinStorage')
-    await deleteFromStorage(id)
+    await deletePinFromStorage(id)
     await loadPins()
   }
 
@@ -681,6 +556,14 @@ export function MapPage() {
         {/* Tile Error Overlay */}
         {showTileError && (
           <div className="map-page__tile-error" ref={tileErrorRef} role="alert">
+            <button
+              type="button"
+              className="map-page__tile-error__dismiss"
+              aria-label="Dismiss map tile warning"
+              onClick={() => setShowTileError(false)}
+            >
+              ×
+            </button>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
@@ -726,10 +609,4 @@ export function MapPage() {
       />
     </div>
   )
-}
-
-function escapeHtml(text: string): string {
-  const div = document.createElement('div')
-  div.textContent = text
-  return div.innerHTML
 }

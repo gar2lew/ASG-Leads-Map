@@ -1,7 +1,8 @@
 .map-feedback {
   position: absolute;
-  top: var(--asg-space-4);
-  left: 50%;
+  right: auto;
+  bottom: var(--asg-space-5);
+  left: var(--asg-space-5);
   z-index: var(--asg-z-toast);
   display: flex;
   align-items: center;
@@ -14,7 +15,7 @@
   border: 1px solid var(--asg-color-surface-300);
   border-radius: var(--asg-radius-xl);
   box-shadow: var(--asg-shadow-lg);
-  transform: translateX(-50%);
+  transform: none;
 }
 
 .map-feedback--success {

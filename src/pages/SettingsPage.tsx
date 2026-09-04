@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
+import { canManageSettings } from '../domain'
+import { useCurrentUser } from '../auth'
 import './SettingsPage.css'
 
 export function SettingsPage() {
+  const currentUser = useCurrentUser()
+  const hasSettingsAccess = canManageSettings(currentUser.role)
   const [theme, setTheme] = useState<'light' | 'dark' | 'high-contrast'>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('asg-theme') as 'light' | 'dark' | 'high-contrast') || 'light'
@@ -16,6 +20,23 @@ export function SettingsPage() {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('asg-theme', theme)
   }, [theme])
+
+  if (!hasSettingsAccess) {
+    return (
+      <div className="settings-page">
+        <header className="page__header">
+          <div>
+            <h1 className="page__title">Settings</h1>
+          </div>
+        </header>
+        <section className="card">
+          <div className="card__content">
+            <p className="empty-state__description">You do not have permission to manage settings.</p>
+          </div>
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className="settings-page">

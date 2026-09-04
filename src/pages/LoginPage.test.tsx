@@ -12,7 +12,7 @@ const adminUser: CurrentUser = {
   name: 'Admin One',
   displayName: 'Admin One',
   email: 'admin@asg.local',
-  role: 'admin',
+  role: 'super_admin',
   active: true,
 }
 

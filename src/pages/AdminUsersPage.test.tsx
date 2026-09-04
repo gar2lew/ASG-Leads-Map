@@ -12,7 +12,7 @@ const adminUser: CurrentUser = {
   name: 'Admin One',
   displayName: 'Admin One',
   email: 'admin@asg.local',
-  role: 'admin',
+  role: 'super_admin',
   active: true,
 }
 
@@ -52,6 +52,7 @@ const mocks = vi.hoisted(() => {
       listUsers: vi.fn(async () => users),
       createUser: vi.fn(),
       updateUser: vi.fn(),
+      resetUserPassword: vi.fn(),
       setUsers: (list: unknown[]) => {
         users = list
       },
@@ -104,7 +105,7 @@ describe('AdminUsersPage', () => {
     expect(screen.getByText('admin@asg.local')).toBeInTheDocument()
     expect(screen.getAllByText('Active')).toHaveLength(2)
     const adminRow = screen.getByRole('row', { name: /Admin One/ })
-    expect((within(adminRow).getByRole('option', { name: 'Admin' }) as HTMLOptionElement).selected).toBe(true)
+    expect(within(adminRow).getByText('Super Admin')).toBeVisible()
   })
 
   it('creates a user and shows the temporary password', async () => {
@@ -139,10 +140,13 @@ describe('AdminUsersPage', () => {
     })
 
     const repRow = screen.getByRole('row', { name: /Rep One/ })
-    await user.click(within(repRow).getByRole('button', { name: /deactivate/i }))
+    await user.click(within(repRow).getByRole('button', { name: /edit user/i }))
+    const editor = screen.getByRole('dialog', { name: /edit user/i })
+    await user.selectOptions(within(editor).getByLabelText(/status/i), 'disabled')
+    await user.click(within(editor).getByRole('button', { name: /save changes/i }))
 
-    expect(mocks.userAdminService.updateUser).toHaveBeenCalledWith('rep-1', { active: false })
-    expect(await within(repRow).findByText('Disabled')).toBeInTheDocument()
+    expect(mocks.userAdminService.updateUser).toHaveBeenCalledWith('rep-1', expect.objectContaining({ active: false }))
+    expect(await screen.findByRole('row', { name: /Rep One.*Disabled/ })).toBeInTheDocument()
   })
 
   it('changes a user role through the row select', async () => {
@@ -152,21 +156,73 @@ describe('AdminUsersPage', () => {
       role: 'manager',
     })
 
-    await user.selectOptions(screen.getByLabelText('Role for rep@asg.local'), 'manager')
+    const repRow = screen.getByRole('row', { name: /Rep One/ })
+    await user.click(within(repRow).getByRole('button', { name: /edit user/i }))
+    const editor = screen.getByRole('dialog', { name: /edit user/i })
+    await user.selectOptions(within(editor).getByLabelText(/role/i), 'manager')
+    await user.click(within(editor).getByRole('button', { name: /save changes/i }))
 
-    expect(mocks.userAdminService.updateUser).toHaveBeenCalledWith('rep-1', { role: 'manager' })
+    expect(mocks.userAdminService.updateUser).toHaveBeenCalledWith('rep-1', expect.objectContaining({ role: 'manager' }))
+
+    expect(await screen.findByRole('row', { name: /Rep One.*Manager/ })).toBeInTheDocument()
+  })
+
+  it('edits all profile fields from one user editor', async () => {
+    const user = await renderPage()
+    mocks.userAdminService.updateUser.mockResolvedValue({
+      ...repUser,
+      email: 'jane@asg.local',
+      displayName: 'Jane Rep',
+      role: 'manager',
+      teamId: 'North',
+      active: false,
+    })
 
     const repRow = screen.getByRole('row', { name: /Rep One/ })
-    const managerOption = await within(repRow).findByRole('option', { name: 'Manager' })
-    expect((managerOption as HTMLOptionElement).selected).toBe(true)
+    await user.click(within(repRow).getByRole('button', { name: /edit user/i }))
+
+    const editor = screen.getByRole('dialog', { name: /edit user/i })
+    await user.clear(within(editor).getByLabelText(/display name/i))
+    await user.type(within(editor).getByLabelText(/display name/i), 'Jane Rep')
+    await user.clear(within(editor).getByLabelText(/email/i))
+    await user.type(within(editor).getByLabelText(/email/i), 'jane@asg.local')
+    await user.selectOptions(within(editor).getByLabelText(/role/i), 'manager')
+    await user.clear(within(editor).getByLabelText(/team/i))
+    await user.type(within(editor).getByLabelText(/team/i), 'North')
+    await user.selectOptions(within(editor).getByLabelText(/status/i), 'disabled')
+    await user.click(within(editor).getByRole('button', { name: /save changes/i }))
+
+    expect(mocks.userAdminService.updateUser).toHaveBeenCalledWith('rep-1', {
+      displayName: 'Jane Rep',
+      email: 'jane@asg.local',
+      role: 'manager',
+      teamId: 'North',
+      active: false,
+    })
+  })
+
+  it('resets a user password and shows the temporary password', async () => {
+    const user = await renderPage()
+    mocks.userAdminService.resetUserPassword.mockResolvedValue({ temporaryPassword: 'NewPass456' })
+
+    const repRow = screen.getByRole('row', { name: /Rep One/ })
+    await user.click(within(repRow).getByRole('button', { name: /edit user/i }))
+    const editor = screen.getByRole('dialog', { name: /edit user/i })
+    await user.click(within(editor).getByRole('button', { name: /issue temporary password/i }))
+
+    expect(mocks.userAdminService.resetUserPassword).toHaveBeenCalledWith('rep-1')
+    expect(await within(editor).findByText('NewPass456')).toBeInTheDocument()
   })
 
   it('does not allow deactivating or changing the own role', async () => {
-    await renderPage()
+    const user = await renderPage()
 
     const ownRow = screen.getByRole('row', { name: /Admin One/ })
     expect(within(ownRow).queryByRole('button', { name: /deactivate/i })).not.toBeInTheDocument()
-    expect(within(ownRow).getByLabelText('Role for admin@asg.local')).toBeDisabled()
+    await user.click(within(ownRow).getByRole('button', { name: /edit user/i }))
+    const editor = screen.getByRole('dialog', { name: /edit user/i })
+    expect(within(editor).getByLabelText(/role/i)).toBeDisabled()
+    expect(within(editor).getByLabelText(/status/i)).toBeDisabled()
   })
 
   it('redirects a non-admin to the map', async () => {
