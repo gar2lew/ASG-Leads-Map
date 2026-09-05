@@ -130,14 +130,14 @@ export async function getPinsByOutcome(outcome: Pin['outcome']): Promise<Pin[]> 
 
 export async function getUnsyncedPins(): Promise<Pin[]> {
   return withTransaction('readonly', (store) => {
-    const index = store.index('by-synced')
-    return index.getAll(IDBKeyRange.only(false))
+    const request = store.getAll()
+    return request
   })
 }
 
 export async function syncPendingPins(): Promise<{ synced: number; failed: number }> {
   if (typeof indexedDB === 'undefined') return { synced: 0, failed: 0 }
-  const pending = await getUnsyncedPins()
+  const pending = (await getUnsyncedPins()).filter((pin) => !pin.synced)
   let synced = 0
   let failed = 0
   for (const pin of pending) {

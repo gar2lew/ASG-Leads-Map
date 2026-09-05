@@ -25,7 +25,9 @@ service cloud.firestore {
 
     // User profiles. Admin can read/write all; a user can read their own.
     match /users/{uid} {
-      allow read: if isSuperAdmin() || (isActiveUser() && request.auth.uid == uid);
+      // Users must be able to read their own profile during Firebase sign-in
+      // before office/active status can be evaluated by the client.
+      allow read: if isSuperAdmin() || (signedIn() && request.auth.uid == uid);
       allow write: if isSuperAdmin();
     }
 
