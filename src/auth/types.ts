@@ -50,6 +50,7 @@ export interface CreateUserInput {
   email: string
   displayName: string
   role: Role
+  officeId: OfficeId
   teamId?: string
 }
 
@@ -57,6 +58,7 @@ export interface UpdateUserInput {
   email?: string
   displayName?: string
   role?: Role
+  officeId?: OfficeId
   teamId?: string
   active?: boolean
 }

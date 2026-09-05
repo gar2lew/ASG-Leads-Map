@@ -124,6 +124,7 @@ describe('AdminUsersPage', () => {
     expect(mocks.userAdminService.createUser).toHaveBeenCalledWith({
       email: 'jane@asg.local',
       displayName: 'Jane Rep',
+      officeId: 'perth',
       role: 'rep',
     })
 

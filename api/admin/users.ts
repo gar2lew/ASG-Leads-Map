@@ -6,6 +6,7 @@ interface CreateUserBody {
   displayName?: unknown
   role?: unknown
   teamId?: unknown
+  officeId?: unknown
 }
 
 function generateTemporaryPassword(): string {
@@ -43,6 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : ''
   const role = typeof body.role === 'string' ? body.role : ''
   const teamId = typeof body.teamId === 'string' && body.teamId.trim() ? body.teamId.trim() : undefined
+  const officeId = body.officeId === 'perth' || body.officeId === 'brisbane' ? body.officeId : ''
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     res.status(400).json({ error: 'Enter a valid email address.' })
@@ -54,6 +56,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (!isAdminRole(role)) {
     res.status(400).json({ error: 'Select a valid role.' })
+    return
+  }
+  if (!officeId) {
+    res.status(400).json({ error: 'Select a valid office.' })
     return
   }
 
@@ -88,7 +94,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const profile: Record<string, unknown> = {
       email,
       displayName,
-      role,
+    role,
+    officeId,
       active: true,
       createdAt: now,
       updatedAt: now,
@@ -98,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await db.collection('users').doc(created.uid).set(profile)
 
     res.status(201).json({
-      user: { uid: created.uid, email, displayName, role, active: true, teamId },
+      user: { uid: created.uid, email, displayName, role, active: true, officeId, teamId },
       temporaryPassword,
     })
   } catch (error) {

@@ -40,6 +40,9 @@ function assertCreateInput(input: CreateUserInput): void {
   if (!isValidRole(input.role)) {
     throw new Error('Select a valid role.')
   }
+  if (input.officeId !== 'perth' && input.officeId !== 'brisbane') {
+    throw new Error('Select a valid office.')
+  }
   if (findDevAccount(email)) {
     throw new Error('A user with this email already exists.')
   }
@@ -64,6 +67,7 @@ export function createDevUserAdminService(): UserAdminService {
         email,
         role: input.role,
         active: true,
+        officeId: input.officeId,
       }
       if (input.teamId && input.teamId.trim()) {
         user.teamId = input.teamId.trim()
@@ -110,6 +114,10 @@ export function createDevUserAdminService(): UserAdminService {
         } else {
           delete (account.user as { teamId?: string }).teamId
         }
+      }
+      if (input.officeId !== undefined) {
+        if (input.officeId !== 'perth' && input.officeId !== 'brisbane') throw new Error('Select a valid office.')
+        account.user.officeId = input.officeId
       }
       return accountToRecord(account.user.uid)
     },

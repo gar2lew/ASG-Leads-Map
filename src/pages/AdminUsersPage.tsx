@@ -29,6 +29,7 @@ export function AdminUsersPage() {
   const [createEmail, setCreateEmail] = useState('')
   const [createName, setCreateName] = useState('')
   const [createRole, setCreateRole] = useState<RoleType>(EMPTY_ROLE)
+  const [createOffice, setCreateOffice] = useState<'perth' | 'brisbane'>('perth')
   const [createTeam, setCreateTeam] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
@@ -72,6 +73,7 @@ export function AdminUsersPage() {
         email: createEmail,
         displayName: createName,
         role: createRole,
+        officeId: createOffice,
         ...(createTeam.trim() ? { teamId: createTeam.trim() } : {}),
       })
       setCreatedResult(result)
@@ -79,6 +81,7 @@ export function AdminUsersPage() {
       setCreateEmail('')
       setCreateName('')
       setCreateRole(EMPTY_ROLE)
+      setCreateOffice('perth')
       setCreateTeam('')
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'Failed to create user.')
@@ -152,6 +155,13 @@ export function AdminUsersPage() {
         <form className="admin-users__create" onSubmit={handleCreateSubmit} noValidate>
           <h2 className="admin-users__create-title">Create user</h2>
           <div className="admin-users__create-grid">
+            <div className="form-group">
+              <label className="form-label" htmlFor="user-office">Office</label>
+              <select id="user-office" className="form-input" value={createOffice} onChange={(event) => setCreateOffice(event.target.value as 'perth' | 'brisbane')}>
+                <option value="perth">Perth</option>
+                <option value="brisbane">Brisbane</option>
+              </select>
+            </div>
             <div className="form-group">
               <label className="form-label" htmlFor="user-email">
                 Email*
@@ -262,7 +272,8 @@ export function AdminUsersPage() {
               <th scope="col">Name</th>
               <th scope="col">Email</th>
               <th scope="col">Role</th>
-              <th scope="col">Team</th>
+          <th scope="col">Office</th>
+          <th scope="col">Team</th>
               <th scope="col">Status</th>
               <th scope="col">
                 <span className="visually-hidden">Actions</span>
@@ -278,6 +289,7 @@ export function AdminUsersPage() {
                   </td>
                   <td data-label="Email">{user.email}</td>
                   <td data-label="Role"><span className="admin-users__role">{roleLabel(user.role)}</span></td>
+                  <td data-label="Office">{user.officeId === 'brisbane' ? 'Brisbane' : user.officeId === 'perth' ? 'Perth' : 'Unassigned'}</td>
                   <td data-label="Team">{user.teamId ?? '—'}</td>
                   <td data-label="Status">
                     <span className={`admin-users__status ${user.active ? 'admin-users__status--active' : 'admin-users__status--disabled'}`}>

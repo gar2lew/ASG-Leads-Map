@@ -12,6 +12,7 @@ interface ProfileData {
   role?: string
   active?: boolean
   teamId?: string
+  officeId?: 'perth' | 'brisbane'
 }
 
 function isUserProfileRecord(value: unknown): value is UserProfileRecord {
@@ -46,6 +47,7 @@ function toRecord(uid: string, data: ProfileData): UserProfileRecord {
     active: data.active !== false,
   }
   if (data.teamId) record.teamId = data.teamId
+  if (data.officeId === 'perth' || data.officeId === 'brisbane') record.officeId = data.officeId
   return record
 }
 
