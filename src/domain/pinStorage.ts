@@ -1,8 +1,37 @@
 import type { Pin, PinFilters } from './pin'
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
+import { getFirebaseApp } from '../firebase/app'
+import { isFirebaseConfigured } from '../firebase/config'
+import { getFirestoreDb } from '../firebase/firestore'
 
 const DB_NAME = 'asg-leads-map'
 const DB_VERSION = 1
 const STORE_NAME = 'pins'
+
+function remoteStorageEnabled(): boolean {
+  return isFirebaseConfigured() && (!import.meta.env.DEV || import.meta.env['VITE_USE_DEV_AUTH'] === 'false')
+}
+
+async function remoteContext(): Promise<{ uid: string; officeId: 'perth' | 'brisbane' } | null> {
+  if (!remoteStorageEnabled()) return null
+  const { getAuth } = await import('firebase/auth')
+  const user = getAuth(getFirebaseApp()).currentUser
+  if (!user) return null
+  const profile = await getDoc(doc(getFirestoreDb(), 'users', user.uid))
+  const officeId = profile.data()?.['officeId']
+  if (officeId !== 'perth' && officeId !== 'brisbane') return null
+  return { uid: user.uid, officeId }
+}
+
+async function saveRemotePin(pin: Pin): Promise<boolean> {
+  const context = await remoteContext()
+  if (!context || pin.officeId !== context.officeId) return false
+  await setDoc(doc(getFirestoreDb(), 'pins', pin.id), {
+    ...pin,
+    officeId: context.officeId,
+  })
+  return true
+}
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -43,6 +72,21 @@ function withTransaction<T>(
 
 export async function savePin(pin: Pin): Promise<void> {
   await withTransaction('readwrite', (store) => store.put(pin))
+  try {
+    if (await saveRemotePin(pin)) {
+      await markLocalPinSynced(pin.id)
+    }
+  } catch {
+    // IndexedDB remains the offline queue when Firestore is unavailable.
+  }
+}
+
+async function markLocalPinSynced(id: string): Promise<void> {
+  const local = await getPin(id)
+  if (!local) return
+  local.synced = true
+  local.syncAttempts = 0
+  await withTransaction('readwrite', (store) => store.put(local))
 }
 
 export async function savePins(pins: Pin[]): Promise<void> {
@@ -57,7 +101,24 @@ export async function getPin(id: string): Promise<Pin | null> {
 }
 
 export async function getAllPins(): Promise<Pin[]> {
-  return withTransaction('readonly', (store) => store.getAll())
+  const localPins = await withTransaction('readonly', (store) => store.getAll())
+  try {
+    const context = await remoteContext()
+    if (!context) return localPins
+    const snapshot = await getDocs(query(collection(getFirestoreDb(), 'pins'), where('officeId', '==', context.officeId)))
+    const remotePins = snapshot.docs.map((item) => item.data() as Pin)
+    const merged = new Map(localPins.map((pin) => [pin.id, pin]))
+    remotePins.forEach((pin) => merged.set(pin.id, { ...pin, synced: true, syncAttempts: 0 }))
+    const result = [...merged.values()]
+    await savePinsLocal(result)
+    return result
+  } catch {
+    return localPins
+  }
+}
+
+async function savePinsLocal(pins: Pin[]): Promise<void> {
+  await Promise.all(pins.map((pin) => withTransaction('readwrite', (store) => store.put(pin))))
 }
 
 export async function getPinsByOutcome(outcome: Pin['outcome']): Promise<Pin[]> {
