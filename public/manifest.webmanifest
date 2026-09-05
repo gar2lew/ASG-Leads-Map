@@ -1,0 +1,17 @@
+{
+  "name": "ASG Field Sales Map",
+  "short_name": "ASG Map",
+  "description": "Record property visits and leads for ASG field sales teams.",
+  "start_url": "/map",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
