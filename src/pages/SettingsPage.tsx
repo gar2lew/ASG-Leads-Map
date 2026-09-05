@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react'
 import { canManageSettings } from '../domain'
 import { useCurrentUser } from '../auth'
+import { initialiseTheme, type AppTheme } from '../theme'
 import './SettingsPage.css'
 
 export function SettingsPage() {
   const currentUser = useCurrentUser()
   const hasSettingsAccess = canManageSettings(currentUser.role)
-  const [theme, setTheme] = useState<'light' | 'dark' | 'high-contrast'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('asg-theme') as 'light' | 'dark' | 'high-contrast') || 'light'
-    }
-    return 'light'
-  })
+  const [theme, setTheme] = useState<AppTheme>(() => initialiseTheme())
   const [notifications, setNotifications] = useState(true)
   const [autoSync, setAutoSync] = useState(true)
   const [syncInterval, setSyncInterval] = useState(15)

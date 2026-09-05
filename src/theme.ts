@@ -4,6 +4,11 @@ export type AppTheme = (typeof APP_THEMES)[number]
 
 export const DEFAULT_THEME: AppTheme = 'high-contrast'
 
+export function nextTheme(theme: AppTheme): AppTheme {
+  const index = APP_THEMES.indexOf(theme)
+  return APP_THEMES[(index + 1) % APP_THEMES.length] ?? DEFAULT_THEME
+}
+
 export function resolveInitialTheme(savedTheme: string | null): AppTheme {
   return APP_THEMES.includes(savedTheme as AppTheme)
     ? (savedTheme as AppTheme)

@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import { useCurrentUser, getAuthService } from '../auth'
 import { canViewReports, canManageSettings, canManageUsers, roleLabel } from '../domain'
 import './Layout.css'
+import { initialiseTheme, nextTheme, type AppTheme } from '../theme'
 
 interface LayoutProps {
   children?: ReactNode
@@ -10,6 +11,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const currentUser = useCurrentUser()
+  const [theme, setTheme] = useState<AppTheme>(() => initialiseTheme())
   const showReports = canViewReports(currentUser.role)
   const showSettings = canManageSettings(currentUser.role)
   const showAdminUsers = canManageUsers(currentUser.role)
@@ -20,6 +22,13 @@ export function Layout({ children }: LayoutProps) {
     } catch (error) {
       console.error('Sign out failed:', error)
     }
+  }
+
+  const handleThemeToggle = () => {
+    const updatedTheme = nextTheme(theme)
+    setTheme(updatedTheme)
+    document.documentElement.setAttribute('data-theme', updatedTheme)
+    localStorage.setItem('asg-theme', updatedTheme)
   }
 
   return (
@@ -91,6 +100,9 @@ export function Layout({ children }: LayoutProps) {
               className="btn btn--ghost btn--sm header__theme-toggle"
               aria-label="Toggle theme"
               type="button"
+              onClick={handleThemeToggle}
+              title={`Switch to ${nextTheme(theme).replace('-', ' ')} theme`}
+              aria-pressed={theme !== 'light'}
             >
               <svg className="icon icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <circle cx="12" cy="12" r="5" />

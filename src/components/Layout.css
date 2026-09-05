@@ -250,8 +250,8 @@
   .header__logo { min-height: 44px; }
   .header__logo-text { display: inline; font-size: var(--asg-text-body); }
   .header__user-info,
-  .header__actions .header__theme-toggle,
   .header__nav { display: none; }
+  .header__theme-toggle { display: inline-flex; }
   .app__main { min-height: 0; padding-bottom: calc(62px + env(safe-area-inset-bottom)); }
   .app__content.container { max-width: none; min-height: 0; padding: 0; }
   .app__footer { display: none; }

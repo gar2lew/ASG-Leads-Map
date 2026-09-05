@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { initialiseTheme, resolveInitialTheme } from './theme'
+import { initialiseTheme, nextTheme, resolveInitialTheme } from './theme'
 
 describe('resolveInitialTheme', () => {
   it('defaults new users to high contrast', () => {
@@ -36,5 +36,15 @@ describe('initialiseTheme', () => {
     expect(initialiseTheme()).toBe('dark')
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
     expect(localStorage.getItem('asg-theme')).toBe('dark')
+  })
+})
+
+describe('nextTheme', () => {
+  it.each([
+    ['light', 'dark'],
+    ['dark', 'high-contrast'],
+    ['high-contrast', 'light'],
+  ] as const)('cycles %s to %s', (current, expected) => {
+    expect(nextTheme(current)).toBe(expected)
   })
 })
