@@ -14,6 +14,7 @@ import {
   searchAddress,
   canExportData,
   deletePin as deletePinFromStorage,
+  syncPendingPins,
 } from '../domain'
 import { useCurrentUser } from '../auth'
 import { PinModal } from '../components/PinModal'
@@ -90,6 +91,20 @@ export function MapPage() {
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- synchronize the initial view with IndexedDB
     void loadPins()
+  }, [loadPins])
+
+  useEffect(() => {
+    const sync = () => {
+      void syncPendingPins().then(({ synced }) => {
+        if (synced > 0) {
+          setFeedback({ kind: 'success', message: `${synced} offline ${synced === 1 ? 'change' : 'changes'} synced` })
+          void loadPins()
+        }
+      })
+    }
+    sync()
+    window.addEventListener('online', sync)
+    return () => window.removeEventListener('online', sync)
   }, [loadPins])
 
   const createProvisionalMarker = () => {
