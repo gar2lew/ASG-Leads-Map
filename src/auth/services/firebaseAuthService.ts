@@ -7,7 +7,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore'
 import { getFirebaseApp } from '../../firebase/app'
 import { getFirestoreDb } from '../../firebase/firestore'
-import type { CurrentUser, Role } from '../../domain/roles'
+import type { CurrentUser, OfficeId, Role } from '../../domain/roles'
 import { isValidRole } from '../../domain/roles'
 import type { AuthService } from '../types'
 import { AuthError } from '../types'
@@ -32,6 +32,7 @@ export interface StoredUserProfile {
   role?: string
   active?: boolean
   teamId?: string
+  officeId?: OfficeId
 }
 
 export function profileToCurrentUser(uid: string, email: string, profile: StoredUserProfile | undefined): CurrentUser {
@@ -48,6 +49,7 @@ export function profileToCurrentUser(uid: string, email: string, profile: Stored
     active,
   }
   if (profile && profile.teamId) user.teamId = profile.teamId
+  if (profile?.officeId === 'perth' || profile?.officeId === 'brisbane') user.officeId = profile.officeId
   return user
 }
 

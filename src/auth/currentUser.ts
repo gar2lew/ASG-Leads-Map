@@ -25,6 +25,7 @@ export const DEV_USERS: Record<Role, CurrentUser> = {
     email: 'admin@asg.local',
     role: Role.SuperAdmin,
     active: true,
+    officeId: 'perth',
   },
   [Role.Manager]: {
     id: 'dev-manager',
@@ -34,6 +35,7 @@ export const DEV_USERS: Record<Role, CurrentUser> = {
     email: 'manager@asg.local',
     role: Role.Manager,
     active: true,
+    officeId: 'perth',
   },
   [Role.Rep]: {
     id: 'dev-rep',
@@ -43,6 +45,7 @@ export const DEV_USERS: Record<Role, CurrentUser> = {
     email: 'rep@asg.local',
     role: Role.Rep,
     active: true,
+    officeId: 'perth',
   },
 }
 

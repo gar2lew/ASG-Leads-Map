@@ -405,7 +405,7 @@ export function MapPage() {
           contactPhone: data.contactPhone ?? undefined,
           contactEmail: data.contactEmail ?? undefined,
         }
-        const newPin = createPin(createPinData, currentUser.uid)
+        const newPin = createPin(createPinData, currentUser.uid, currentUser.officeId)
         await savePin(newPin)
         setPins((prev) => [...prev, newPin])
       }

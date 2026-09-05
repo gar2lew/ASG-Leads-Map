@@ -1,4 +1,5 @@
 import { PinOutcome } from './pinOutcome'
+import type { OfficeId } from './roles'
 
 export interface Pin {
   id: string
@@ -13,6 +14,7 @@ export interface Pin {
   createdAt: string
   updatedAt: string
   createdBy: string
+  officeId?: OfficeId
   synced: boolean
   syncAttempts: number
 }
@@ -26,6 +28,7 @@ export interface CreatePinInput {
   contactName: string | undefined
   contactPhone: string | undefined
   contactEmail: string | undefined
+  officeId?: OfficeId
 }
 
 export interface UpdatePinInput {
@@ -53,7 +56,7 @@ export interface PinFilters {
 
 export const DEFAULT_PIN_OUTCOME = PinOutcome.NotKnocked
 
-export function createPin(input: CreatePinInput, userId: string): Pin {
+export function createPin(input: CreatePinInput, userId: string, officeId?: OfficeId): Pin {
   const now = new Date().toISOString()
   return {
     id: crypto.randomUUID(),
@@ -68,6 +71,7 @@ export function createPin(input: CreatePinInput, userId: string): Pin {
     createdAt: now,
     updatedAt: now,
     createdBy: userId,
+    ...(officeId ? { officeId } : {}),
     synced: false,
     syncAttempts: 0,
   }

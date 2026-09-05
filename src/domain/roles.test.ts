@@ -6,6 +6,7 @@ import {
   roleLabel,
   isValidRole,
   USER_CAPABILITIES,
+  OFFICE_IDS,
   hasCapability,
   canViewReports,
   canExportData,
@@ -22,6 +23,10 @@ describe('Role', () => {
     expect(Role.Manager).toBe('manager')
     expect(Role.Rep).toBe('rep')
   })
+})
+
+it('defines the initial office identifiers', () => {
+  expect(OFFICE_IDS).toEqual(['perth', 'brisbane'])
 })
 
 describe('ROLE_ORDER', () => {

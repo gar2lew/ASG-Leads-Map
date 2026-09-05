@@ -6,6 +6,9 @@ export const Role = {
 
 export type Role = (typeof Role)[keyof typeof Role]
 
+export const OFFICE_IDS = ['perth', 'brisbane'] as const
+export type OfficeId = (typeof OFFICE_IDS)[number]
+
 export interface CurrentUser {
   /**
    * Backwards-compatible alias for the Firebase uid. `id === uid` for
@@ -19,6 +22,7 @@ export interface CurrentUser {
   email: string
   role: Role
   active: boolean
+  officeId?: OfficeId
   teamId?: string
 }
 

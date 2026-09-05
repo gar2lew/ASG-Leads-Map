@@ -12,10 +12,44 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
     }
 
+    function isActiveUser() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true;
+    }
+
+    function sameOffice(officeId) {
+      return isSuperAdmin()
+        || (isActiveUser()
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.officeId == officeId);
+    }
+
     // User profiles. Admin can read/write all; a user can read their own.
     match /users/{uid} {
-      allow read: if isSuperAdmin() || request.auth.uid == uid;
+      allow read: if isSuperAdmin() || (isActiveUser() && request.auth.uid == uid);
       allow write: if isSuperAdmin();
+    }
+
+    // Operational data is office-scoped. These rules intentionally require
+    // officeId on every document so a missing assignment fails closed.
+    match /pins/{pinId} {
+      allow read: if isActiveUser() && sameOffice(resource.data.officeId);
+      allow create: if isActiveUser()
+        && sameOffice(request.resource.data.officeId)
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isActiveUser()
+        && sameOffice(resource.data.officeId)
+        && sameOffice(request.resource.data.officeId)
+        && resource.data.createdBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /leads/{leadId} {
+      allow read: if isActiveUser() && sameOffice(resource.data.officeId);
+      allow create: if isActiveUser() && sameOffice(request.resource.data.officeId);
+      allow update: if isActiveUser()
+        && sameOffice(resource.data.officeId)
+        && sameOffice(request.resource.data.officeId);
+      allow delete: if false;
     }
   }
 }

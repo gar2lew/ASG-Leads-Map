@@ -1,4 +1,4 @@
-import type { CurrentUser, Role } from '../domain/roles'
+import type { CurrentUser, OfficeId, Role } from '../domain/roles'
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out'
 
@@ -42,6 +42,7 @@ export interface UserProfileRecord {
   displayName: string
   role: Role
   active: boolean
+  officeId?: OfficeId
   teamId?: string
 }
 
