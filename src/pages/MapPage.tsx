@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo, type FormEvent } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Pin, PinOutcome } from '../domain'
@@ -11,6 +11,7 @@ import {
   savePin,
   getPinCountByOutcome,
   createPin,
+  searchAddress,
   canExportData,
   deletePin as deletePinFromStorage,
 } from '../domain'
@@ -56,6 +57,9 @@ export function MapPage() {
   const [isAddingPin, setIsAddingPin] = useState(false)
   const [showTileError, setShowTileError] = useState(false)
   const [feedback, setFeedback] = useState<MapFeedbackValue | null>(null)
+  const [searchResults, setSearchResults] = useState<Awaited<ReturnType<typeof searchAddress>>>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [locationStatus, setLocationStatus] = useState<'requesting' | 'located' | 'fallback'>('requesting')
   const currentUser = useCurrentUser()
   const showExport = canExportData(currentUser.role)
 
@@ -188,6 +192,22 @@ export function MapPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      // oxlint-disable-next-line react/set-state-in-effect -- reflect unavailable browser capability
+      setLocationStatus('fallback')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setLocationStatus('located')
+        mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 13, duration: 900 })
+      },
+      () => setLocationStatus('fallback'),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+    )
+  }, [])
+
   // Handle map tile errors
   useEffect(() => {
     if (!mapRef.current) return
@@ -274,6 +294,23 @@ export function MapPage() {
 
   const handleAddPinClick = () => {
     setIsAddingPin(true)
+  }
+
+  const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setIsSearching(true)
+    setSearchResults([])
+    try {
+      const results = await searchAddress(searchQuery)
+      setSearchResults(results)
+      const first = results[0]
+      if (first) mapRef.current?.flyTo({ center: [first.longitude, first.latitude], zoom: 13, duration: 900 })
+      else setFeedback({ kind: 'error', message: 'No Australian suburb or address found.' })
+    } catch {
+      setFeedback({ kind: 'error', message: 'Search is unavailable. Check your connection and try again.' })
+    } finally {
+      setIsSearching(false)
+    }
   }
 
   const cancelPinPlacement = () => {
@@ -485,7 +522,7 @@ export function MapPage() {
       {/* Unified Filter Bar */}
       <div className="map-page__filter-bar" role="toolbar" aria-label="Map filters">
         {/* Search - placeholder for future */}
-        <div className="map-page__filter-group" role="search" aria-label="Map search and filters" style={{ flex: 1, minWidth: 200 }}>
+        <form className="map-page__filter-group map-page__search" role="search" aria-label="Map search and filters" onSubmit={handleSearch} style={{ flex: 1, minWidth: 200 }}>
           <label htmlFor="map-search" className="visually-hidden">Search address or suburb</label>
           <input
             id="map-search"
@@ -497,7 +534,11 @@ export function MapPage() {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
-        </div>
+          <button className="btn btn--secondary btn--sm" type="submit" disabled={isSearching || !searchQuery.trim()}>
+            {isSearching ? 'Searching…' : 'Search'}
+          </button>
+          {searchResults.length > 0 && <span className="map-page__search-result" role="status">Moved to {searchResults[0]?.address}</span>}
+        </form>
 
         {/* Outcome Filter Chips */}
         <div className="map-page__filter-group">
@@ -546,6 +587,11 @@ export function MapPage() {
 
       {/* Map Container */}
       <div className="map-page__map-wrapper">
+        <div className={`map-page__location-status map-page__location-status--${locationStatus}`} aria-live="polite">
+          {locationStatus === 'requesting' && 'Finding your location…'}
+          {locationStatus === 'located' && 'Map centred on your location'}
+          {locationStatus === 'fallback' && 'Using Perth office map view'}
+        </div>
         <div
           ref={mapContainerRef}
           className="map-page__map"

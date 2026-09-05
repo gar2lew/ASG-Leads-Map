@@ -1,12 +1,25 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   reverseGeocode,
+  searchAddress,
   findNearestAddressedProperty,
   haversineDistanceMetres,
   abbreviateAustralianState,
   NEARBY_HIGH_MAX_METRES,
   NEARBY_SUGGESTED_MAX_METRES,
 } from './geocoding'
+
+describe('searchAddress', () => {
+  it('searches Australian localities and returns map-ready results', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { lat: '-32.265', lon: '115.817', display_name: 'Baldivis, WA, Australia', address: { suburb: 'Baldivis', state: 'Western Australia', country: 'Australia' } },
+    ])))
+
+    await expect(searchAddress('Baldivis')).resolves.toEqual([
+      expect.objectContaining({ address: 'Baldivis, WA', latitude: -32.265, longitude: 115.817, suburb: 'Baldivis' }),
+    ])
+  })
+})
 
 const DROP_LAT = -31.9505
 const DROP_LON = 115.8605

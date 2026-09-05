@@ -54,6 +54,7 @@ export const NEARBY_HIGH_MAX_METRES = 10
 export const NEARBY_SUGGESTED_MAX_METRES = 25
 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org/reverse'
+const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search'
 const OVERPASS_BASE_URL = 'https://overpass-api.de/api/interpreter'
 const USER_AGENT = 'ASG-Leads-Map/1.0 (asg-leads-map)'
 
@@ -463,4 +464,34 @@ export async function reverseGeocode(
 
 export function isGeocodingError(error: unknown): error is GeocodingError {
   return error instanceof Error
+}
+
+export async function searchAddress(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
+  const trimmed = query.trim()
+  if (!trimmed) return []
+  const params = new URLSearchParams({
+    q: `${trimmed}, Australia`,
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '5',
+    countrycodes: 'au',
+    'accept-language': 'en-AU,en;q=0.9',
+  })
+  const response = await fetch(`${NOMINATIM_SEARCH_URL}?${params}`, {
+    headers: { 'User-Agent': USER_AGENT },
+    signal: signal ?? null,
+  })
+  if (!response.ok) throw new Error(`Address search failed: ${response.status}`)
+  const data: unknown = await response.json()
+  if (!Array.isArray(data)) return []
+  return data.flatMap((item): GeocodingResult[] => {
+    if (typeof item !== 'object' || item === null) return []
+    const record = item as Record<string, unknown>
+    const latitude = Number(record['lat'])
+    const longitude = Number(record['lon'])
+    const components = extractComponents((record['address'] ?? {}) as Record<string, unknown>)
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return []
+    const address = formatAustralianAddress(components) || String(record['display_name'] ?? trimmed)
+    return [{ address, components, suburb: components.suburb, state: abbreviateAustralianState(components.state), postcode: components.postcode, latitude, longitude, source: 'manual', confidence: 'manual' }]
+  })
 }
