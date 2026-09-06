@@ -2,6 +2,8 @@ export const PinOutcome = {
   Knocked: 'knocked',
   NotKnocked: 'not_knocked',
   NotInterested: 'not_interested',
+  Revisit: 'revisit',
+  WrongNumber: 'wrong_number',
   DidNotQualify: 'did_not_qualify',
   Lead: 'lead',
 } as const
@@ -24,6 +26,8 @@ const pinOutcomeLabels: Record<PinOutcome, string> = {
   [PinOutcome.Knocked]: 'Knocked',
   [PinOutcome.NotKnocked]: 'Not Knocked',
   [PinOutcome.NotInterested]: 'Not Interested',
+  [PinOutcome.Revisit]: 'Revisit',
+  [PinOutcome.WrongNumber]: 'Wrong Number',
   [PinOutcome.DidNotQualify]: 'Did Not Qualify',
   [PinOutcome.Lead]: 'Lead',
 }
@@ -40,6 +44,8 @@ const pinOutcomeColors: Record<PinOutcome, string> = {
   [PinOutcome.Knocked]: '#3B82F6',
   [PinOutcome.NotKnocked]: '#9CA3AF',
   [PinOutcome.NotInterested]: '#EF4444',
+  [PinOutcome.Revisit]: '#8B5CF6',
+  [PinOutcome.WrongNumber]: '#64748B',
   [PinOutcome.DidNotQualify]: '#F59E0B',
   [PinOutcome.Lead]: '#10B981',
 }

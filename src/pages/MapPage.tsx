@@ -468,6 +468,8 @@ export function MapPage() {
       knocked: 'knocked',
       not_knocked: 'not-knocked',
       not_interested: 'not-interested',
+      revisit: 'revisit',
+      wrong_number: 'wrong-number',
       did_not_qualify: 'did-not-qualify',
       lead: 'lead',
     }

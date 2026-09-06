@@ -48,6 +48,16 @@ export const OUTCOME_FIELD_REQUIREMENTS: Record<PinOutcome, OutcomeFieldRequirem
     optional: ['notes'],
     leadIntegration: false,
   },
+  [PinOutcome.Revisit]: {
+    required: ['address', 'addressConfirmed', 'coordinates'],
+    optional: ['notes'],
+    leadIntegration: false,
+  },
+  [PinOutcome.WrongNumber]: {
+    required: ['address', 'addressConfirmed', 'coordinates'],
+    optional: ['notes'],
+    leadIntegration: false,
+  },
   [PinOutcome.DidNotQualify]: {
     required: ['address', 'addressConfirmed', 'coordinates'],
     optional: ['notes'],
