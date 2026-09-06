@@ -94,10 +94,10 @@ export function createFirebaseAuthService(): AuthService {
     loadFirebaseProfile(firebaseUser.uid, firebaseUser.email ?? '').then((profileUser) => {
       if (!profileUser) {
         // Authenticated in Firebase but not provisioned: deny app access.
-        if (current) {
-          current = null
-          emit(null)
-        }
+        // Always emit so AuthProvider cannot remain stuck in its initial
+        // loading state when the profile is missing, disabled, or unreadable.
+        current = null
+        emit(null)
         return
       }
       current = profileUser
