@@ -82,6 +82,17 @@ export function Layout({ children }: LayoutProps) {
                   </NavLink>
                 </li>
               )}
+              {showAdminUsers && (
+                <li>
+                  <NavLink
+                    to="/admin/import"
+                    className={({ isActive }) =>
+                      `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
+                  >
+                    Import Leads
+                  </NavLink>
+                </li>
+              )}
               {showSettings && (
                 <li>
                   <NavLink

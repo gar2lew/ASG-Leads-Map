@@ -6,6 +6,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { LoginPage } from './pages/LoginPage'
 import { AdminUsersPage } from './pages/AdminUsersPage'
+import { LeadImportPage } from './pages/LeadImportPage'
 import './App.css'
 
 function App() {
@@ -24,6 +25,14 @@ function App() {
               element={
                 <RequireRole capability="users:manage">
                   <AdminUsersPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/admin/import"
+              element={
+                <RequireRole capability="users:manage">
+                  <LeadImportPage />
                 </RequireRole>
               }
             />
