@@ -52,6 +52,7 @@ export function LeadImportPage() {
       let skipped = preview.records.length - records.length
       for (let index = 0; index < records.length; index += 1) {
         const record = records[index]
+        if (!record) continue
         const results = await searchAddress(record.address)
         const location = results[0]
         if (!location) {
