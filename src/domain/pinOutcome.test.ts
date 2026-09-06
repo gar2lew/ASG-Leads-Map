@@ -10,8 +10,8 @@ describe('PinOutcome', () => {
     expect(PinOutcome.Lead).toBe('lead')
   })
 
-  it('has exactly 5 outcomes', () => {
-    expect(Object.keys(PinOutcome).length).toBe(5)
+  it('has exactly 7 outcomes', () => {
+    expect(Object.keys(PinOutcome).length).toBe(7)
   })
 })
 

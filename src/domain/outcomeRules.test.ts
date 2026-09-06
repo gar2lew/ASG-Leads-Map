@@ -58,7 +58,7 @@ describe('OUTCOME_FIELD_REQUIREMENTS', () => {
   })
 
   it('requires only address/confirmation/coordinates for non-Lead outcomes', () => {
-    const nonLeadOutcomes = [PinOutcome.Knocked, PinOutcome.NotKnocked, PinOutcome.NotInterested, PinOutcome.DidNotQualify]
+    const nonLeadOutcomes = [PinOutcome.Knocked, PinOutcome.NotKnocked, PinOutcome.NotInterested, PinOutcome.Revisit, PinOutcome.WrongNumber, PinOutcome.DidNotQualify]
     nonLeadOutcomes.forEach((outcome) => {
       const requirements = OUTCOME_FIELD_REQUIREMENTS[outcome]
       expect(requirements.required).toEqual(['address', 'addressConfirmed', 'coordinates'])
