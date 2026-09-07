@@ -109,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await db.collection('users').doc(created.uid).set(profile)
 
     res.status(201).json({
-      user: { uid: created.uid, email, displayName, role, active: true, officeId, teamId },
+      user: { uid: created.uid, email, displayName, role, active: true, officeId, teamId, ...(role === 'rep' ? { pinSetupRequired: true } : {}) },
       temporaryPassword,
     })
   } catch (error) {

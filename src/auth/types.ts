@@ -45,6 +45,7 @@ export interface UserProfileRecord {
   active: boolean
   officeId?: OfficeId
   teamId?: string
+  pinSetupRequired?: boolean
 }
 
 export interface CreateUserInput {

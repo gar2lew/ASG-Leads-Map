@@ -13,6 +13,7 @@ interface ProfileData {
   active?: boolean
   teamId?: string
   officeId?: 'perth' | 'brisbane'
+  pinSetupRequired?: boolean
 }
 
 function isUserProfileRecord(value: unknown): value is UserProfileRecord {
@@ -48,6 +49,7 @@ function toRecord(uid: string, data: ProfileData): UserProfileRecord {
   }
   if (data.teamId) record.teamId = data.teamId
   if (data.officeId === 'perth' || data.officeId === 'brisbane') record.officeId = data.officeId
+  if (data.pinSetupRequired !== undefined) record.pinSetupRequired = data.pinSetupRequired
   return record
 }
 

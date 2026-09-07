@@ -65,9 +65,10 @@ export function UserEditor({ user, isProtected, busy, error, onClose, onSave, on
           </select></label>
           {isProtected && <p className="user-editor__hint">The Super Admin role and active status are protected.</p>}
           <section className="user-editor__password" aria-label="Password reset">
-            <div><strong>Temporary password</strong><p>Issue a new password for the user’s next sign-in.</p></div>
+            <div><strong>{user.role === 'rep' ? 'Temporary PIN' : 'Temporary password'}</strong><p>Issue a new {user.role === 'rep' ? 'PIN' : 'password'} for the user’s next sign-in.</p></div>
             <button className="btn btn--secondary" type="button" disabled={busy} onClick={() => void resetPassword()}>Issue temporary password</button>
             {temporaryPassword && <code className="user-editor__temporary-password">{temporaryPassword}</code>}
+            {user.role === 'rep' && <p className="user-editor__hint">PIN setup: {user.pinSetupRequired ? 'required' : 'complete'}</p>}
           </section>
           {error && <p className="admin-users__error" role="alert">{error}</p>}
           <footer className="user-editor__actions">
