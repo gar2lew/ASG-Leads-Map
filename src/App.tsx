@@ -7,6 +7,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { LoginPage } from './pages/LoginPage'
 import { AdminUsersPage } from './pages/AdminUsersPage'
 import { LeadImportPage } from './pages/LeadImportPage'
+import { SetupPinPage } from './pages/SetupPinPage'
 import './App.css'
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="/map" element={<MapPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/setup-pin" element={<SetupPinPage />} />
             <Route
               path="/admin/users"
               element={

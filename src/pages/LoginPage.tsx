@@ -45,7 +45,9 @@ export function LoginPage() {
     setIsSubmitting(true)
     try {
       if (loginMode === 'rep') {
-        await getAuthService().signInWithPin(repName, pin)
+        const result = await getAuthService().signInWithPin(repName, pin)
+        navigate(result.requiresPinSetup ? '/setup-pin' : from, { replace: true })
+        return
       } else {
         await getAuthService().signIn(email, password)
       }
