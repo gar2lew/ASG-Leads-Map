@@ -1,4 +1,3 @@
-import { collection, getDocs, orderBy, query } from 'firebase/firestore'
 import { getFirestoreDb } from '../../firebase/firestore'
 import type {
   CreatedUserResult,
@@ -68,13 +67,11 @@ export function createFirebaseUserAdminService(getToken: () => Promise<string | 
 
   return {
     async listUsers() {
-      const db = getFirestoreDb()
-      const snapshot = await getDocs(query(collection(db, 'users'), orderBy('displayName')))
-      const users: UserProfileRecord[] = []
-      snapshot.forEach((document) => {
-        users.push(toRecord(document.id, document.data() as ProfileData))
-      })
-      return users
+      const token = await requireToken()
+      const response = await fetch('/api/admin/users', { headers: { Authorization: `Bearer ${token}` } })
+      if (!response.ok) throw await requestError(response)
+      const body = await response.json() as { users?: Array<{ uid?: string } & ProfileData> }
+      return (body.users ?? []).flatMap((record) => record.uid ? [toRecord(record.uid, record)] : [])
     },
     async createUser(input) {
       const token = await requireToken()

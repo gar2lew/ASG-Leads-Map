@@ -26,6 +26,13 @@ function generateTemporaryPassword(): string {
  * Firestore `users/{uid}` profile. Only active admins may call this.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'GET') {
+    const { verifySuperAdminCaller, getAdminDb } = await import('../_lib/admin.js')
+    if (!await verifySuperAdminCaller(req)) { res.status(403).json({ error: 'Forbidden' }); return }
+    const snapshot = await (await getAdminDb()).collection('users').orderBy('displayName').get()
+    res.status(200).json({ users: snapshot.docs.map((document) => ({ uid: document.id, ...document.data() })) })
+    return
+  }
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
