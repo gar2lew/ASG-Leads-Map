@@ -3,6 +3,8 @@ import type {
   UserAdminService,
   UserProfileRecord,
 } from '../types'
+import { collection, getDocs, orderBy, query } from 'firebase/firestore'
+import { getFirestoreDb } from '../../firebase/firestore'
 
 interface ProfileData {
   email?: string
@@ -53,7 +55,7 @@ function toRecord(uid: string, data: ProfileData): UserProfileRecord {
 
 /**
  * Production user-admin: reads profiles directly from Firestore (read path
- * is allowed by rules for admins) and delegates create/update to the Vercel
+ * is allowed by rules for super-admins) and delegates create/update to the Vercel
  * server functions, which authorize the caller via their ID token and write
  * using the Firebase Admin SDK.
  */
@@ -66,11 +68,9 @@ export function createFirebaseUserAdminService(getToken: () => Promise<string | 
 
   return {
     async listUsers() {
-      const token = await requireToken()
-      const response = await fetch('/api/admin/users', { headers: { Authorization: `Bearer ${token}` } })
-      if (!response.ok) throw await requestError(response)
-      const body = await response.json() as { users?: Array<{ uid?: string } & ProfileData> }
-      return (body.users ?? []).flatMap((record) => record.uid ? [toRecord(record.uid, record)] : [])
+      await requireToken()
+      const snapshot = await getDocs(query(collection(getFirestoreDb(), 'users'), orderBy('displayName')))
+      return snapshot.docs.map((document) => toRecord(document.id, document.data() as ProfileData))
     },
     async createUser(input) {
       const token = await requireToken()
