@@ -77,7 +77,7 @@ export function LoginPage() {
         </header>
 
         <div className="login-page__mode" role="tablist" aria-label="Sign-in type">
-          <button type="button" className={loginMode === 'rep' ? 'is-active' : ''} onClick={() => setLoginMode('rep')}>Rep sign in</button>
+          <button type="button" className={loginMode === 'rep' ? 'is-active' : ''} onClick={() => setLoginMode('rep')}>Rep access</button>
           <button type="button" className={loginMode === 'admin' ? 'is-active' : ''} onClick={() => setLoginMode('admin')}>Administrator</button>
         </div>
 
