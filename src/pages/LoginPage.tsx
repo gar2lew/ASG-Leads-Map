@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, getAuthService, isDevAuthActive, isAuthError } from '../auth'
 import { AuthLoadingScreen } from '../components/RouteGuards'
@@ -13,12 +13,23 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as LoginLocationState | null)?.from ?? '/map'
+  const devAuth = isDevAuthActive()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loginMode, setLoginMode] = useState<'rep' | 'admin'>(devAuth ? 'admin' : 'rep')
+  const [repName, setRepName] = useState('')
+  const [pin, setPin] = useState('')
+  const [repNames, setRepNames] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const devAuth = isDevAuthActive()
+
+  useEffect(() => {
+    if (devAuth) return
+    void fetch('/api/auth/rep-names').then((response) => response.ok ? response.json() : { reps: [] }).then((body: { reps?: Array<{ displayName?: string }> }) => {
+      setRepNames((body.reps ?? []).flatMap((rep) => rep.displayName ? [rep.displayName] : []))
+    }).catch(() => undefined)
+  }, [devAuth])
 
   if (status === 'loading') {
     return <AuthLoadingScreen />
@@ -33,7 +44,11 @@ export function LoginPage() {
     setError(null)
     setIsSubmitting(true)
     try {
-      await getAuthService().signIn(email, password)
+      if (loginMode === 'rep') {
+        await getAuthService().signInWithPin(repName, pin)
+      } else {
+        await getAuthService().signIn(email, password)
+      }
       navigate(from, { replace: true })
     } catch (caught) {
       if (isAuthError(caught)) {
@@ -61,6 +76,11 @@ export function LoginPage() {
           <p className="login-page__subtitle">Sign in to continue</p>
         </header>
 
+        <div className="login-page__mode" role="tablist" aria-label="Sign-in type">
+          <button type="button" className={loginMode === 'rep' ? 'is-active' : ''} onClick={() => setLoginMode('rep')}>Rep sign in</button>
+          <button type="button" className={loginMode === 'admin' ? 'is-active' : ''} onClick={() => setLoginMode('admin')}>Administrator</button>
+        </div>
+
         {error && (
           <div className="login-page__error" role="alert">
             {error}
@@ -68,6 +88,19 @@ export function LoginPage() {
         )}
 
         <form className="login-page__form" onSubmit={handleSubmit} noValidate>
+          {loginMode === 'rep' ? <>
+          <div className="form-group">
+            <label className="form-label" htmlFor="login-rep-name">Your name</label>
+            <select id="login-rep-name" className="form-input" value={repName} onChange={(event) => setRepName(event.target.value)} required>
+              <option value="">— Choose your name —</option>
+              {repNames.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="login-pin">4-digit PIN</label>
+            <input id="login-pin" className="form-input" inputMode="numeric" pattern="\d{4}" maxLength={4} type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 4))} required />
+          </div>
+          </> : <>
           <div className="form-group">
             <label className="form-label" htmlFor="login-email">
               Email
@@ -99,6 +132,7 @@ export function LoginPage() {
               required
             />
           </div>
+          </>}
 
           <button className="btn btn--primary btn--block" type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Signing in…' : 'Sign in'}

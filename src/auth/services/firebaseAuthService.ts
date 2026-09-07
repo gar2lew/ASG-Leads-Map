@@ -2,6 +2,7 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   signOut as firebaseSignOut,
 } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
@@ -132,6 +133,25 @@ export function createFirebaseAuthService(): AuthService {
         if (error instanceof AuthError) throw error
         throw firebaseErrorToAuthError(error)
       }
+    },
+    async signInWithPin(displayName, pin) {
+      const response = await fetch('/api/auth/rep-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, pin }),
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string }
+        throw new AuthError('invalid-credentials', body.error ?? 'Unable to sign in.')
+      }
+      const body = await response.json() as { token?: string; requiresPinSetup?: boolean }
+      if (!body.token) throw new AuthError('unknown', 'Unable to sign in. Please try again.')
+      const credential = await signInWithCustomToken(auth, body.token)
+      const profileUser = await loadFirebaseProfile(credential.user.uid, credential.user.email ?? '')
+      if (!profileUser) throw new AuthError('disabled-account', 'This account is not provisioned or has been disabled. Contact an administrator.')
+      current = profileUser
+      emit(current)
+      return { user: current, requiresPinSetup: body.requiresPinSetup !== false }
     },
     async signOut() {
       await firebaseSignOut(auth)

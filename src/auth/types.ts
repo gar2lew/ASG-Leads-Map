@@ -13,6 +13,7 @@ export interface AuthService {
   /** Subscribe to sign-in / sign-out changes. Returns an unsubscribe fn. */
   onUserChanged(callback: (user: CurrentUser | null) => void): () => void
   signIn(email: string, password: string): Promise<CurrentUser>
+  signInWithPin(displayName: string, pin: string): Promise<{ user: CurrentUser; requiresPinSetup: boolean }>
   signOut(): Promise<void>
   /** Raw ID token used to authorize server API calls; null outside Firebase. */
   getAccessToken(): Promise<string | null>
