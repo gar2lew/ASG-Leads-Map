@@ -1,4 +1,3 @@
-import { getFirestoreDb } from '../../firebase/firestore'
 import type {
   CreatedUserResult,
   UserAdminService,
