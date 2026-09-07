@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { createPinCredentials } from '../auth/rep-login.js'
 
 interface CreateUserBody {
   email?: unknown
@@ -25,6 +26,13 @@ function generateTemporaryPassword(): string {
  * Firestore `users/{uid}` profile. Only active admins may call this.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'GET') {
+    const { verifySuperAdminCaller, getAdminDb } = await import('../_lib/admin.js')
+    if (!await verifySuperAdminCaller(req)) { res.status(403).json({ error: 'Forbidden' }); return }
+    const snapshot = await (await getAdminDb()).collection('users').orderBy('displayName').get()
+    res.status(200).json({ users: snapshot.docs.map((document) => ({ uid: document.id, ...document.data() })) })
+    return
+  }
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
@@ -100,12 +108,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       createdAt: now,
       updatedAt: now,
     }
+    if (role === 'rep') {
+      Object.assign(profile, createPinCredentials('0000'), { pinSetupRequired: true })
+    }
     if (teamId) profile.teamId = teamId
 
     await db.collection('users').doc(created.uid).set(profile)
 
     res.status(201).json({
-      user: { uid: created.uid, email, displayName, role, active: true, officeId, teamId },
+      user: { uid: created.uid, email, displayName, role, active: true, officeId, teamId, ...(role === 'rep' ? { pinSetupRequired: true } : {}) },
       temporaryPassword,
     })
   } catch (error) {

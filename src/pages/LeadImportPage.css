@@ -18,4 +18,7 @@
 .lead-import__notice { padding: 1rem; border-radius: .6rem; background: var(--asg-color-gold-100); }
 .lead-import__statuses { display: flex; flex-wrap: wrap; gap: .5rem; }
 .lead-import__statuses span { border: 1px solid var(--asg-color-border); border-radius: 999px; padding: .35rem .65rem; font-size: .85rem; }
+.lead-import__preview .btn { margin-top: 1rem; }
+.lead-import__preview progress { display: block; width: 100%; margin-top: 1rem; accent-color: var(--asg-color-gold-600); }
+.lead-import__success { color: #16734a; font-weight: 700; }
 @media (max-width: 650px) { .lead-import__controls, .lead-import__stats { grid-template-columns: 1fr 1fr; } .lead-import__controls { grid-template-columns: 1fr; } }

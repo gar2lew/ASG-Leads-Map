@@ -115,3 +115,6 @@
   .login-page__brand { display: none; }
   .login-page__card { padding: var(--asg-space-8) var(--asg-space-5); }
 }
+.login-page__mode { display: flex; gap: .5rem; margin: 1rem 0 1.25rem; border-bottom: 1px solid var(--asg-color-border); }
+.login-page__mode button { border: 0; background: none; padding: .65rem .8rem; color: var(--asg-color-text-muted); cursor: pointer; }
+.login-page__mode button.is-active { color: var(--asg-color-navy-900); border-bottom: 2px solid var(--asg-color-gold-600); font-weight: 700; }

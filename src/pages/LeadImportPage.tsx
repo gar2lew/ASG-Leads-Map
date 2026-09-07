@@ -2,7 +2,7 @@ import { useState, type ChangeEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useCurrentUser } from '../auth'
 import { canManageUsers } from '../domain/roles'
-import { getAllPins, parseLeadWorkbook, findImportedDuplicates, type LeadImportPreview } from '../domain'
+import { createPin, getAllPins, parseLeadWorkbook, findImportedDuplicates, savePin, searchAddress, type LeadImportPreview } from '../domain'
 import type { OfficeId } from '../domain/roles'
 import './LeadImportPage.css'
 
@@ -14,6 +14,9 @@ export function LeadImportPage() {
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isReading, setIsReading] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState({ done: 0, total: 0, skipped: 0 })
+  const [importComplete, setImportComplete] = useState(false)
 
   if (!canManageUsers(user.role)) return <Navigate to="/map" replace />
 
@@ -22,6 +25,7 @@ export function LeadImportPage() {
     if (!file) return
     setError(null)
     setPreview(null)
+    setImportComplete(false)
     setFileName(file.name)
     setIsReading(true)
     try {
@@ -33,6 +37,49 @@ export function LeadImportPage() {
       setError(cause instanceof Error ? cause.message : 'Unable to read this workbook.')
     } finally {
       setIsReading(false)
+    }
+  }
+
+  async function handleImport() {
+    if (!preview || isImporting) return
+    const existing = await getAllPins()
+    const duplicates = findImportedDuplicates(preview.records, existing)
+    const records = preview.records.filter((record) => !duplicates.has(record.dedupeKey))
+    setIsImporting(true)
+    setImportComplete(false)
+    setImportProgress({ done: 0, total: records.length, skipped: preview.records.length - records.length })
+    try {
+      let skipped = preview.records.length - records.length
+      for (let index = 0; index < records.length; index += 1) {
+        const record = records[index]
+        if (!record) continue
+        const results = await searchAddress(record.address)
+        const location = results[0]
+        if (!location) {
+          skipped += 1
+          setImportProgress({ done: index + 1, total: records.length, skipped })
+          continue
+        }
+        const pin = createPin({
+          latitude: location.latitude,
+          longitude: location.longitude,
+          outcome: record.outcome,
+          address: record.address,
+          notes: [record.notes, `Imported from ${record.sourceSheet} (${record.sourceStatus})`].filter(Boolean).join(' · '),
+          contactName: record.contactName,
+          contactPhone: record.contactPhone,
+          contactEmail: undefined,
+          officeId,
+        }, user.uid, officeId)
+        await savePin(pin)
+        setImportProgress({ done: index + 1, total: records.length, skipped })
+        await new Promise((resolve) => window.setTimeout(resolve, 1100))
+      }
+      setImportComplete(true)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Import stopped unexpectedly. Refresh and retry to continue.')
+    } finally {
+      setIsImporting(false)
     }
   }
 
@@ -79,6 +126,11 @@ export function LeadImportPage() {
             <div><strong>{preview.invalidRows.length}</strong><span>invalid rows</span></div>
           </div>
           <p className="lead-import__notice">No records have been written yet. The next step will geocode addresses and add them as contacted pins, keeping them out of the default available-to-knock workflow.</p>
+          <button className="btn btn--primary" type="button" onClick={() => void handleImport()} disabled={isImporting || preview.records.length === duplicateCount}>
+            {isImporting ? `Importing ${importProgress.done} of ${importProgress.total}…` : 'Start master import'}
+          </button>
+          {isImporting && <progress value={importProgress.done} max={importProgress.total} aria-label="Import progress" />}
+          {importComplete && <p className="lead-import__success" role="status">Import complete. {importProgress.done - importProgress.skipped} records added; {importProgress.skipped} skipped.</p>}
           <div className="lead-import__statuses">
             {Array.from(new Set(preview.records.map((record) => record.sourceStatus))).slice(0, 8).map((status) => <span key={status}>{status}</span>)}
           </div>
