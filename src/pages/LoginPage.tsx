@@ -17,7 +17,7 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loginMode, setLoginMode] = useState<'rep' | 'admin'>(devAuth ? 'admin' : 'rep')
+  const [loginMode, setLoginMode] = useState<'rep' | 'admin'>('admin')
   const [repName, setRepName] = useState('')
   const [pin, setPin] = useState('')
   const [repNames, setRepNames] = useState<string[]>([])
