@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { canManageSettings } from '../domain'
 import { useCurrentUser } from '../auth'
+import { roleLabel } from '../domain/roles'
 import { initialiseTheme, type AppTheme } from '../theme'
 import './SettingsPage.css'
 
@@ -216,7 +217,7 @@ export function SettingsPage() {
             <div className="setting-item">
               <div className="setting-item__info">
                 <h3 className="setting-item__title">Current User</h3>
-                <p className="setting-item__description">Signed in as Field Rep</p>
+                <p className="setting-item__description">Signed in as {roleLabel(currentUser.role)}</p>
               </div>
               <div className="setting-item__control">
                 <button className="btn btn--secondary" type="button">View Profile</button>
