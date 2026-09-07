@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { createPinCredentials } from '../auth/rep-login.js'
 
 interface CreateUserBody {
   email?: unknown
@@ -99,6 +100,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       active: true,
       createdAt: now,
       updatedAt: now,
+    }
+    if (role === 'rep') {
+      Object.assign(profile, createPinCredentials('0000'), { pinSetupRequired: true })
     }
     if (teamId) profile.teamId = teamId
 
