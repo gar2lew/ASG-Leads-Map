@@ -63,6 +63,8 @@ export function MapPage() {
   const [feedback, setFeedback] = useState<MapFeedbackValue | null>(null)
   const [searchResults, setSearchResults] = useState<Awaited<ReturnType<typeof searchAddress>>>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [locationStatus, setLocationStatus] = useState<'requesting' | 'located' | 'fallback'>('requesting')
   const currentUser = useCurrentUser()
   const showExport = canExportData(currentUser.role)
@@ -77,6 +79,7 @@ export function MapPage() {
       return true
     })
   }, [currentUser.uid, outcomeFilter, pins, repFilter, searchQuery])
+  const pendingPinCount = useMemo(() => pins.filter((pin) => !pin.synced).length, [pins])
   const selectedPin = pins.find((pin) => pin.id === selectedPinId) ?? null
 
   const loadPins = useCallback(async () => {
@@ -98,13 +101,27 @@ export function MapPage() {
   }, [loadPins])
 
   useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  useEffect(() => {
     const sync = () => {
-      void syncPendingPins().then(({ synced }) => {
-        if (synced > 0) {
-          setFeedback({ kind: 'success', message: `${synced} offline ${synced === 1 ? 'change' : 'changes'} synced` })
-          void loadPins()
-        }
-      })
+      setIsSyncing(true)
+      void syncPendingPins()
+        .then(({ synced }) => {
+          if (synced > 0) {
+            setFeedback({ kind: 'success', message: `${synced} offline ${synced === 1 ? 'change' : 'changes'} synced` })
+            void loadPins()
+          }
+        })
+        .finally(() => setIsSyncing(false))
     }
     sync()
     window.addEventListener('online', sync)
@@ -547,6 +564,18 @@ export function MapPage() {
 
       {/* Unified Filter Bar */}
       <div className="map-page__filter-bar" role="toolbar" aria-label="Map filters">
+        <span className={`map-page__connection-status ${isOnline ? 'map-page__connection-status--online' : 'map-page__connection-status--offline'}`} role="status" aria-label="Connection status" aria-live="polite">
+          <span className="map-page__connection-dot" aria-hidden="true" />
+          {isOnline
+            ? isSyncing && pendingPinCount > 0
+              ? `Syncing ${pendingPinCount} local ${pendingPinCount === 1 ? 'change' : 'changes'}…`
+              : pendingPinCount > 0
+                ? `Online — ${pendingPinCount} ${pendingPinCount === 1 ? 'change' : 'changes'} pending`
+                : 'Online'
+            : pendingPinCount > 0
+              ? `Offline — ${pendingPinCount} ${pendingPinCount === 1 ? 'change' : 'changes'} saved locally`
+              : 'Offline — changes saved locally'}
+        </span>
         {/* Search - placeholder for future */}
         <form className="map-page__filter-group map-page__search" role="search" aria-label="Map search and filters" onSubmit={handleSearch} style={{ flex: 1, minWidth: 200 }}>
           <label htmlFor="map-search" className="visually-hidden">Search address or suburb</label>

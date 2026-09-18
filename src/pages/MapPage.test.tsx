@@ -446,6 +446,55 @@ describe('MapPage - Add Pin Workflow', () => {
     expect(await screen.findByRole('banner')).toHaveClass('premium-page-header')
     expect(screen.getByRole('search', { name: /map search and filters/i })).toBeVisible()
     expect(screen.getByRole('group', { name: /map actions/i })).toBeVisible()
+    expect(screen.getByRole('status', { name: /connection status/i })).toHaveTextContent(/online/i)
+  })
+
+  it('announces when the field device goes offline and returns online', async () => {
+    render(
+      <BrowserRouter>
+        <MapPage />
+      </BrowserRouter>
+    )
+
+    const status = await screen.findByRole('status', { name: /connection status/i })
+    act(() => window.dispatchEvent(new Event('offline')))
+    expect(status).toHaveTextContent(/offline/i)
+    expect(status).toHaveTextContent(/saved locally/i)
+
+    act(() => window.dispatchEvent(new Event('online')))
+    expect(status).toHaveTextContent(/online/i)
+  })
+
+  it('shows the number of locally saved changes while offline', async () => {
+    mockPins.push(
+      { id: 'pending-one', latitude: -31.95, longitude: 115.86, outcome: 'lead', synced: false },
+      { id: 'pending-two', latitude: -31.96, longitude: 115.87, outcome: 'lead', synced: false },
+      { id: 'synced-one', latitude: -31.97, longitude: 115.88, outcome: 'not_knocked', synced: true },
+    )
+
+    render(
+      <BrowserRouter>
+        <MapPage />
+      </BrowserRouter>
+    )
+
+    const status = await screen.findByRole('status', { name: /connection status/i })
+    act(() => window.dispatchEvent(new Event('offline')))
+    await waitFor(() => expect(status).toHaveTextContent('2 changes saved locally'))
+  })
+
+  it('uses singular copy for one locally saved change', async () => {
+    mockPins.push({ id: 'pending-one', latitude: -31.95, longitude: 115.86, outcome: 'lead', synced: false })
+
+    render(
+      <BrowserRouter>
+        <MapPage />
+      </BrowserRouter>
+    )
+
+    const status = await screen.findByRole('status', { name: /connection status/i })
+    act(() => window.dispatchEvent(new Event('offline')))
+    await waitFor(() => expect(status).toHaveTextContent('1 change saved locally'))
   })
 
   it('keeps map controls usable when tiles fail', async () => {
@@ -1250,7 +1299,7 @@ describe('MapPage - Immediate Pin Rendering', () => {
       expect(savePin).toHaveBeenCalledTimes(1)
     })
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Pin saved')
+    expect(await screen.findByText('Pin saved')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /add pin/i })).toBeInTheDocument()
   })
 })
