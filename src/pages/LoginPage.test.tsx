@@ -82,6 +82,8 @@ describe('LoginPage', () => {
     const user = await renderLogin()
 
     expect(screen.getByRole('main')).toHaveClass('login-experience')
+    expect(screen.getByRole('heading', { name: 'Leads Map with Live Pins' })).toBeInTheDocument()
+    expect(screen.getByText('Lead Generation Importing')).toBeInTheDocument()
     expect(screen.getByText('Welcome back')).toBeInTheDocument()
     expect(screen.getByText('Admin access')).toBeInTheDocument()
     expect(screen.getByLabelText('6-digit admin PIN')).toBeInTheDocument()

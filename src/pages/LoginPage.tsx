@@ -66,8 +66,8 @@ export function LoginPage() {
       <aside className="login-page__brand" aria-label="ASG Leads Map">
         <span className="login-page__brand-mark">ASG</span>
         <p className="login-page__brand-overline">Amplify Solutions Group</p>
-        <h2>Field intelligence,<br />beautifully organised.</h2>
-        <p>Capture every visit, protect every lead, and keep your territory moving.</p>
+        <h2>Leads Map<br />with Live Pins</h2>
+        <p>Lead Generation Importing</p>
       </aside>
       <div className="login-page__card">
         <header className="login-page__header">
