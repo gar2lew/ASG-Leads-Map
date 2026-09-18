@@ -15,6 +15,8 @@ export interface Pin {
   updatedAt: string
   createdBy: string
   officeId?: OfficeId
+  source?: 'manual' | 'jotform'
+  externalId?: string
   synced: boolean
   syncAttempts: number
 }
@@ -29,6 +31,8 @@ export interface CreatePinInput {
   contactPhone: string | undefined
   contactEmail: string | undefined
   officeId?: OfficeId
+  source?: 'manual' | 'jotform'
+  externalId?: string
 }
 
 export interface UpdatePinInput {
@@ -72,6 +76,8 @@ export function createPin(input: CreatePinInput, userId: string, officeId?: Offi
     updatedAt: now,
     createdBy: userId,
     ...(officeId ? { officeId } : {}),
+    ...(input.source ? { source: input.source } : {}),
+    ...(input.externalId ? { externalId: input.externalId } : {}),
     synced: false,
     syncAttempts: 0,
   }

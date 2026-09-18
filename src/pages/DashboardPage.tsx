@@ -1,5 +1,7 @@
-import { PinOutcome, pinOutcomeColor, pinOutcomeLabel, canViewReports } from '../domain'
-import { useCurrentUser } from '../auth'
+import { useEffect, useState } from 'react'
+import { PinOutcome, pinOutcomeColor, pinOutcomeLabel, canViewReports, compareReportPeriods, exportReportToCsv, filterPinsForReport, getAllPins, summarizePins, type ReportSummary, type Pin } from '../domain'
+import type { OfficeId } from '../domain/roles'
+import { getUserAdminService, useCurrentUser, type UserProfileRecord } from '../auth'
 import './DashboardPage.css'
 
 interface StatCardProps {
@@ -30,71 +32,6 @@ function StatCard({ title, value, icon, trend, variant = 'primary' }: StatCardPr
   )
 }
 
-// Static demo data (replace with real data from API)
-const stats = [
-  {
-    title: 'Total Pins',
-    value: '1,234',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <path d="M21 10V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3" />
-        <path d="M3 14h18" />
-        <path d="M12 14v8" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    ),
-    trend: { value: 12, label: 'vs last week' },
-    variant: 'primary' as const,
-  },
-  {
-    title: 'Leads Generated',
-    value: '87',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    ),
-    trend: { value: 23, label: 'vs last week' },
-    variant: 'success' as const,
-  },
-  {
-    title: 'Conversion Rate',
-    value: '7.1%',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <path d="M18 20V10" />
-        <path d="M12 20V4" />
-        <path d="M6 20v-6" />
-      </svg>
-    ),
-    trend: { value: -2, label: 'vs last week' },
-    variant: 'warning' as const,
-  },
-  {
-    title: 'Active Reps',
-    value: '12',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-    trend: { value: 0, label: 'vs last week' },
-    variant: 'info' as const,
-  },
-]
-
-const recentActivity = [
-  { time: '2 min ago', rep: 'Sarah Chen', action: 'Marked as Lead', address: '123 Hay St, Perth', outcome: PinOutcome.Lead },
-  { time: '15 min ago', rep: 'James Wilson', action: 'Knocked - Not Interested', address: '456 Murray St, Perth', outcome: PinOutcome.NotInterested },
-  { time: '32 min ago', rep: 'Emma Davis', action: 'Did Not Qualify', address: '789 Wellington St, Perth', outcome: PinOutcome.DidNotQualify },
-  { time: '1 hour ago', rep: 'Sarah Chen', action: 'Knocked', address: '321 Barrack St, Perth', outcome: PinOutcome.Knocked },
-  { time: '2 hours ago', rep: 'Michael Brown', action: 'Not Knocked', address: '654 St Georges Tce, Perth', outcome: PinOutcome.NotKnocked },
-]
-
 const outcomeBadgeVariant: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'secondary'> = {
   [PinOutcome.Knocked]: 'success',
   [PinOutcome.NotKnocked]: 'secondary',
@@ -103,26 +40,53 @@ const outcomeBadgeVariant: Record<string, 'success' | 'warning' | 'danger' | 'in
   [PinOutcome.Lead]: 'info',
 }
 
-// Static demo data for charts
-const outcomeDistribution = [
-  { outcome: PinOutcome.Knocked, count: 342 },
-  { outcome: PinOutcome.NotKnocked, count: 156 },
-  { outcome: PinOutcome.NotInterested, count: 89 },
-  { outcome: PinOutcome.DidNotQualify, count: 67 },
-  { outcome: PinOutcome.Lead, count: 87 },
-]
-
-const repActivity = [
-  { name: 'Sarah Chen', count: 87, percentage: 75 },
-  { name: 'James Wilson', count: 72, percentage: 62 },
-  { name: 'Emma Davis', count: 58, percentage: 50 },
-  { name: 'Michael Brown', count: 45, percentage: 39 },
-  { name: 'Lisa Park', count: 33, percentage: 28 },
-]
-
 export function DashboardPage() {
   const currentUser = useCurrentUser()
   const hasReportAccess = canViewReports(currentUser.role)
+  const [pins, setPins] = useState<Pin[]>([])
+  const [repNames, setRepNames] = useState<Record<string, string>>({})
+  const [isLoading, setIsLoading] = useState(hasReportAccess)
+  const [officeFilter, setOfficeFilter] = useState<'all' | OfficeId>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  useEffect(() => {
+    if (!hasReportAccess) {
+      return
+    }
+
+    async function loadReportData() {
+      try {
+        const loadedPins = await getAllPins()
+        setPins(loadedPins)
+        try {
+          const users = await getUserAdminService().listUsers()
+          setRepNames(toRepNameMap(users))
+        } catch (error) {
+          console.error('Failed to load report user names:', error)
+        }
+      } catch (error) {
+        console.error('Failed to load report data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadReportData()
+  }, [hasReportAccess])
+
+  const reportPins = filterPinsForReport(pins, {
+    officeId: officeFilter === 'all' ? undefined : officeFilter,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+  })
+  const report = summarizePins(reportPins)
+  const comparison = dateFrom && dateTo
+    ? compareReportPeriods(pins, { officeId: officeFilter === 'all' ? undefined : officeFilter, dateFrom, dateTo })
+    : null
+  const recentActivity = [...reportPins]
+    .sort((first, second) => second.createdAt.localeCompare(first.createdAt))
+    .slice(0, 5)
 
   if (!hasReportAccess) {
     return (
@@ -149,7 +113,7 @@ export function DashboardPage() {
           <p className="page__subtitle">Overview of field sales activity for your office</p>
         </div>
         <div className="page__actions">
-          <button className="btn btn--primary" type="button">
+          <button className="btn btn--primary" type="button" disabled={isLoading} onClick={() => handleExportReport(report)}>
             <svg className="icon btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
@@ -165,9 +129,22 @@ export function DashboardPage() {
       <section className="dashboard-page__stats" aria-labelledby="stats-heading">
         <h2 id="stats-heading" className="visually-hidden">Key Statistics</h2>
         <div className="stats-grid">
-          {stats.map((stat, index) => (
-            <StatCard key={index} {...stat} />
-          ))}
+          <StatCard title="Total Pins" value={report.totalPins} {...(comparison ? { trend: { value: comparison.changes.totalPins, label: 'vs previous period' } } : {})} variant="primary" icon={<span aria-hidden="true">●</span>} />
+          <StatCard title="Leads Generated" value={report.leadsGenerated} {...(comparison ? { trend: { value: comparison.changes.leadsGenerated, label: 'vs previous period' } } : {})} variant="success" icon={<span aria-hidden="true">✓</span>} />
+          <StatCard title="Conversion Rate" value={`${report.conversionRate}%`} {...(comparison ? { trend: { value: comparison.changes.conversionRate, label: 'vs previous period' } } : {})} variant="warning" icon={<span aria-hidden="true">%</span>} />
+          <StatCard title="Active Reps" value={report.activeReps} {...(comparison ? { trend: { value: comparison.changes.activeReps, label: 'vs previous period' } } : {})} variant="info" icon={<span aria-hidden="true">♟</span>} />
+        </div>
+      </section>
+
+      <section className="dashboard-page__filters card" aria-labelledby="filters-heading">
+        <div className="card__header">
+          <h2 className="card__title" id="filters-heading">Report Filters</h2>
+        </div>
+        <div className="card__content dashboard-filters">
+          <label>Office<select value={officeFilter} onChange={(event) => setOfficeFilter(event.target.value as 'all' | OfficeId)}><option value="all">All offices</option><option value="perth">Perth</option><option value="brisbane">Brisbane</option></select></label>
+          <label>From<input type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => setDateFrom(event.target.value)} /></label>
+          <label>To<input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} /></label>
+          {(dateFrom || dateTo || officeFilter !== 'all') && <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setOfficeFilter('all'); setDateFrom(''); setDateTo('') }}>Clear filters</button>}
         </div>
       </section>
 
@@ -180,7 +157,7 @@ export function DashboardPage() {
             <div className="chart-placeholder">
               <p className="empty-state__description">Chart: Outcomes by Type (Bar Chart)</p>
               <div className="outcome-summary">
-                {outcomeDistribution.map(({ outcome, count }) => (
+                {report.outcomeDistribution.map(({ outcome, count }) => (
                   <div key={outcome} className="outcome-summary__item">
                     <span
                       className="outcome-summary__color"
@@ -196,13 +173,13 @@ export function DashboardPage() {
             <div className="chart-placeholder">
               <p className="empty-state__description">Chart: Activity by Rep (Horizontal Bar)</p>
               <div className="rep-activity">
-                {repActivity.map((rep, i) => (
-                  <div key={i} className="rep-activity__item">
-                    <span className="rep-activity__name">{rep.name}</span>
+                {report.repActivity.map((rep) => (
+                  <div key={rep.repId} className="rep-activity__item">
+                    <span className="rep-activity__name">{repNames[rep.repId] ?? rep.repId}</span>
                     <div className="rep-activity__bar">
                       <div
                         className="rep-activity__fill"
-                        style={{ width: `${rep.percentage}%`, backgroundColor: 'var(--asg-color-accent-gold)' }}
+                        style={{ width: `${report.totalPins === 0 ? 0 : (rep.count / report.totalPins) * 100}%`, backgroundColor: 'var(--asg-color-accent-gold)' }}
                       />
                     </div>
                     <span className="rep-activity__count">{rep.count}</span>
@@ -231,14 +208,14 @@ export function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {recentActivity.map((activity, index) => (
-                <tr key={index}>
-                  <td><time>{activity.time}</time></td>
-                  <td>{activity.rep}</td>
-                  <td>{activity.action}</td>
-                  <td>{activity.address}</td>
+              {recentActivity.map((activity) => (
+                <tr key={activity.id}>
+                  <td><time dateTime={activity.createdAt}>{formatRelativeTime(activity.createdAt)}</time></td>
+                  <td>{repNames[activity.createdBy] ?? activity.createdBy}</td>
+                  <td>Marked as {pinOutcomeLabel(activity.outcome)}</td>
+                  <td>{activity.address ?? '—'}</td>
                   <td>
-                    <span className={`badge badge--${outcomeBadgeVariant[activity.outcome]}`}>
+                    <span className={`badge badge--${outcomeBadgeVariant[activity.outcome] ?? 'secondary'}`}>
                       {pinOutcomeLabel(activity.outcome)}
                     </span>
                   </td>
@@ -250,4 +227,26 @@ export function DashboardPage() {
       </section>
     </div>
   )
+}
+
+function handleExportReport(report: ReportSummary): void {
+  const blob = new Blob([exportReportToCsv(report)], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `asg-leads-report-${new Date().toISOString().split('T')[0]}.csv`
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
+
+function formatRelativeTime(createdAt: string): string {
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000))
+  if (elapsedMinutes < 1) return 'Just now'
+  if (elapsedMinutes < 60) return `${elapsedMinutes} min ago`
+  const elapsedHours = Math.floor(elapsedMinutes / 60)
+  if (elapsedHours < 24) return `${elapsedHours} hour${elapsedHours === 1 ? '' : 's'} ago`
+  return `${Math.floor(elapsedHours / 24)} day${Math.floor(elapsedHours / 24) === 1 ? '' : 's'} ago`
+}
+
+function toRepNameMap(users: UserProfileRecord[]): Record<string, string> {
+  return Object.fromEntries(users.map((user) => [user.uid, user.displayName]))
 }

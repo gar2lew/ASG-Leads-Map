@@ -39,6 +39,9 @@ export function AdminUsersPage() {
   const [rowBusy, setRowBusy] = useState<string | null>(null)
   const [rowError, setRowError] = useState<string | null>(null)
 
+  const [searchQuery, setSearchQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState<RoleType | ''>('')
+
   const hasAccess = canManageUsers(currentUser.role)
 
   useEffect(() => {
@@ -125,9 +128,17 @@ export function AdminUsersPage() {
     await getAuthService().signOut()
   }
 
+  // Filter users
+  const filteredUsers = users.filter((user) => {
+    const query = searchQuery.trim().toLowerCase()
+    if (query && !user.displayName.toLowerCase().includes(query) && !user.email.toLowerCase().includes(query)) return false
+    if (roleFilter && user.role !== roleFilter) return false
+    return true
+  })
+
   return (
     <section className="admin-users" aria-label="User management">
-      <div className="admin-users__header">
+      <header className="admin-users__header">
         <div>
           <span className="admin-users__eyebrow">Administration</span>
           <h1 className="admin-users__title">User Management</h1>
@@ -138,112 +149,42 @@ export function AdminUsersPage() {
             className="btn btn--primary"
             type="button"
             onClick={() => {
-              setShowCreate((open) => !open)
+              setShowCreate(true)
               setCreatedResult(null)
               setCreateError(null)
             }}
           >
-            {showCreate ? 'Cancel' : 'Add user'}
+            <svg className="icon btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Create user
           </button>
           <button className="btn btn--ghost" type="button" onClick={handleSignOut}>
             Sign out
           </button>
         </div>
-      </div>
+      </header>
 
-      {showCreate && (
-        <form className="admin-users__create" onSubmit={handleCreateSubmit} noValidate>
-          <h2 className="admin-users__create-title">Create user</h2>
-          <div className="admin-users__create-grid">
-            <div className="form-group">
-              <label className="form-label" htmlFor="user-office">Office</label>
-              <select id="user-office" className="form-input" value={createOffice} onChange={(event) => setCreateOffice(event.target.value as 'perth' | 'brisbane')}>
-                <option value="perth">Perth</option>
-                <option value="brisbane">Brisbane</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="user-email">
-                Email*
-              </label>
-              <input
-                id="user-email"
-                className="form-input"
-                type="email"
-                name="email"
-                value={createEmail}
-                onChange={(event) => setCreateEmail(event.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="user-name">
-                Display name*
-              </label>
-              <input
-                id="user-name"
-                className="form-input"
-                type="text"
-                name="displayName"
-                value={createName}
-                onChange={(event) => setCreateName(event.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="user-role">
-                Role
-              </label>
-              <select
-                id="user-role"
-                className="form-input"
-                name="role"
-                value={createRole}
-                onChange={(event) => setCreateRole(event.target.value as RoleType)}
-              >
-                {MANAGED_ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {roleLabel(role)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="user-team">
-                Team (optional)
-              </label>
-              <input
-                id="user-team"
-                className="form-input"
-                type="text"
-                name="teamId"
-                value={createTeam}
-                onChange={(event) => setCreateTeam(event.target.value)}
-              />
-            </div>
-          </div>
-          <button className="btn btn--primary" type="submit" disabled={isCreating}>
-            {isCreating ? 'Creating…' : 'Create user'}
-          </button>
-          {createError && (
-            <p className="admin-users__error" role="alert">
-              {createError}
-            </p>
-          )}
-          {createdResult && (
-            <div className="admin-users__created" role="status">
-              <p>
-                <strong>User created.</strong> Share this one-time password with{' '}
-                <code>{createdResult.user.email}</code>:
-              </p>
-              <code className="admin-users__password">{createdResult.temporaryPassword}</code>
-              <p className="admin-users__created-note">
-                They can change it after their first sign-in.
-              </p>
-            </div>
-          )}
-        </form>
-      )}
+      {/* Search and Filters */}
+      <div className="admin-users__search-bar">
+        <input
+          type="search"
+          className="form-input"
+          placeholder="Search users by name or email…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <select
+          className="form-input"
+          style={{ maxWidth: 160 }}
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value as RoleType | '')}
+        >
+          <option value="">All roles</option>
+          <option value={Role.Manager}>Manager</option>
+          <option value={Role.Rep}>Rep</option>
+        </select>
+      </div>
 
       {rowError && (
         <p className="admin-users__error" role="alert">
@@ -264,25 +205,24 @@ export function AdminUsersPage() {
       )}
 
       {users.length > 0 && (
-        <div className="admin-users__panel">
-        <table className="admin-users__table">
-          <caption className="visually-hidden">User accounts</caption>
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Email</th>
-              <th scope="col">Role</th>
-          <th scope="col">Office</th>
-          <th scope="col">Team</th>
-              <th scope="col">Status</th>
-              <th scope="col">
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => {
-              return (
+        <div className="admin-users__table-container">
+          <table className="admin-users__table">
+            <caption className="visually-hidden">User accounts</caption>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Role</th>
+                <th scope="col">Office</th>
+                <th scope="col">Team</th>
+                <th scope="col">Status</th>
+                <th scope="col">
+                  <span className="visually-hidden">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.map((user) => (
                 <tr key={user.uid} className={`admin-users__row ${user.active ? '' : 'admin-users__row--disabled'}`}>
                   <td data-label="Name">
                     <span className="admin-users__name">{user.displayName}</span>
@@ -296,7 +236,7 @@ export function AdminUsersPage() {
                       {user.active ? 'Active' : 'Disabled'}
                     </span>
                   </td>
-                  <td data-label="Actions">
+                  <td data-label="Actions" className="admin-users__row-actions-cell">
                     <button
                       className="btn btn--ghost btn--sm"
                       type="button"
@@ -310,12 +250,119 @@ export function AdminUsersPage() {
                     </button>
                   </td>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      {/* Create User Modal */}
+      {showCreate && (
+        <div className="admin-users__modal-overlay" role="presentation" onClick={(e) => e.target === e.currentTarget && setShowCreate(false)}>
+          <div className="admin-users__modal" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
+            <header className="admin-users__modal-header">
+              <div>
+                <span className="admin-users__modal-eyebrow">User management</span>
+                <h2 id="create-user-title" className="admin-users__modal-title">Create user</h2>
+              </div>
+              <button
+                type="button"
+                className="admin-users__modal-close"
+                aria-label="Close create user dialog"
+                onClick={() => setShowCreate(false)}
+              >
+                ×
+              </button>
+            </header>
+            <form className="admin-users__modal-form" onSubmit={handleCreateSubmit} noValidate>
+              <div className="admin-users__modal-grid">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="user-office">Office</label>
+                  <select id="user-office" className="form-input" value={createOffice} onChange={(event) => setCreateOffice(event.target.value as 'perth' | 'brisbane')}>
+                    <option value="perth">Perth</option>
+                    <option value="brisbane">Brisbane</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="user-email">Email*</label>
+                  <input
+                    id="user-email"
+                    className="form-input"
+                    type="email"
+                    name="email"
+                    value={createEmail}
+                    onChange={(event) => setCreateEmail(event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="user-name">Display name*</label>
+                  <input
+                    id="user-name"
+                    className="form-input"
+                    type="text"
+                    name="displayName"
+                    value={createName}
+                    onChange={(event) => setCreateName(event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="user-role">Role</label>
+                  <select
+                    id="user-role"
+                    className="form-input"
+                    name="role"
+                    value={createRole}
+                    onChange={(event) => setCreateRole(event.target.value as RoleType)}
+                  >
+                    {MANAGED_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {roleLabel(role)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="user-team">Team (optional)</label>
+                  <input
+                    id="user-team"
+                    className="form-input"
+                    type="text"
+                    name="teamId"
+                    value={createTeam}
+                    onChange={(event) => setCreateTeam(event.target.value)}
+                  />
+                </div>
+              </div>
+              {createError && (
+                <p className="admin-users__error" role="alert">
+                  {createError}
+                </p>
+              )}
+              {createdResult && (
+                <div className="admin-users__created" role="status">
+                  <p>
+                    <strong>User created.</strong> Share this one-time password with{' '}
+                    <code>{createdResult.user.email}</code>:
+                  </p>
+                  <code className="admin-users__password">{createdResult.temporaryPassword}</code>
+                  <p className="admin-users__created-note">
+                    They can change it after their first sign-in.
+                  </p>
+                </div>
+              )}
+              <footer className="admin-users__modal-footer">
+                <button className="btn btn--ghost" type="button" onClick={() => setShowCreate(false)}>Cancel</button>
+                <button className="btn btn--primary" type="submit" disabled={isCreating}>
+                  {isCreating ? 'Creating…' : 'Create user'}
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
+
       {editingUser && (
         <UserEditor
           user={editingUser}

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import { useCurrentUser, getAuthService } from '../auth'
-import { canViewReports, canManageSettings, canManageUsers, roleLabel } from '../domain'
+import { canViewReports, canManageSettings, canManageUsers, roleLabel, canManageTerritories } from '../domain'
 import './Layout.css'
 import { initialiseTheme, nextTheme, type AppTheme } from '../theme'
 
@@ -15,6 +15,7 @@ export function Layout({ children }: LayoutProps) {
   const showReports = canViewReports(currentUser.role)
   const showSettings = canManageSettings(currentUser.role)
   const showAdminUsers = canManageUsers(currentUser.role)
+  const showAdminTerritories = canManageTerritories(currentUser.role)
 
   const handleSignOut = async () => {
     try {
@@ -83,16 +84,27 @@ export function Layout({ children }: LayoutProps) {
                 </li>
               )}
               {showAdminUsers && (
-                <li>
-                  <NavLink
-                    to="/admin/import"
-                    className={({ isActive }) =>
-                      `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
-                  >
-                    Import Leads
-                  </NavLink>
-                </li>
-              )}
+                              <li>
+                                <NavLink
+                                  to="/admin/import"
+                                  className={({ isActive }) =>
+                                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
+                                >
+                                  Import Leads
+                                </NavLink>
+                              </li>
+                            )}
+                            {showAdminTerritories && (
+                              <li>
+                                <NavLink
+                                  to="/admin/territories"
+                                  className={({ isActive }) =>
+                                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
+                                >
+                                  Territories
+                                </NavLink>
+                              </li>
+                            )}
               {showSettings && (
                 <li>
                   <NavLink
@@ -173,19 +185,32 @@ export function Layout({ children }: LayoutProps) {
           </NavLink>
         )}
         {showAdminUsers && (
-          <NavLink
-            to="/admin/users"
-            className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            <span>Admin Users</span>
-          </NavLink>
-        )}
-        {showSettings && (
+                  <NavLink
+                    to="/admin/users"
+                    className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    <span>Admin Users</span>
+                  </NavLink>
+                )}
+                {showAdminTerritories && (
+                  <NavLink
+                    to="/admin/territories"
+                    className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M21 10V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3" />
+                      <path d="M3 14h18" />
+                      <path d="M12 14v8" />
+                    </svg>
+                    <span>Territories</span>
+                  </NavLink>
+                )}
+                {showSettings && (
           <NavLink
             to="/settings"
             className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}

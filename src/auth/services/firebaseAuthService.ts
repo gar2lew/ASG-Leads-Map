@@ -134,6 +134,27 @@ export function createFirebaseAuthService(): AuthService {
         throw firebaseErrorToAuthError(error)
       }
     },
+    async signInWithAdminPin(pin) {
+      const response = await fetch('/api/auth/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string }
+        throw new AuthError('invalid-credentials', body.error ?? 'Unable to sign in.')
+      }
+      const body = await response.json() as { token?: string; requiresPinSetup?: boolean }
+      if (!body.token) throw new AuthError('unknown', 'Unable to sign in. Please try again.')
+      const credential = await signInWithCustomToken(auth, body.token)
+      const profileUser = await loadFirebaseProfile(credential.user.uid, credential.user.email ?? '')
+      if (!profileUser || profileUser.role !== 'super_admin') {
+        throw new AuthError('disabled-account', 'This administrator account is not available.')
+      }
+      current = profileUser
+      emit(current)
+      return { user: current, requiresPinSetup: body.requiresPinSetup === true }
+    },
     async signInWithPin(displayName, pin) {
       const response = await fetch('/api/auth/rep-login', {
         method: 'POST',

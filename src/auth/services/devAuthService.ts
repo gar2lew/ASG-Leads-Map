@@ -116,6 +116,15 @@ export function createDevAuthService(): AuthService {
       emit(user)
       return user
     },
+    async signInWithAdminPin(pin) {
+      const account = DEV_USERS[Role.SuperAdmin]
+      if (pin !== '123456') throw new AuthError('invalid-credentials', 'Invalid administrator PIN.')
+      user = account
+      resolved = true
+      persistSession(user.email)
+      emit(user)
+      return { user, requiresPinSetup: false }
+    },
     async signInWithPin(displayName, pin) {
       const account = Object.values(DEV_USERS).find((candidate) => candidate.name === displayName)
       if (!account || pin !== '0000') throw new AuthError('invalid-credentials', 'That name or PIN is not recognised.')

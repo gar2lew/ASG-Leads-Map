@@ -13,11 +13,13 @@ import {
   createPin,
   searchAddress,
   canExportData,
+  hasCapability,
   deletePin as deletePinFromStorage,
   syncPendingPins,
 } from '../domain'
 import { useCurrentUser } from '../auth'
 import { PinModal } from '../components/PinModal'
+import { AddLeadModal } from '../components/AddLeadModal'
 import { MapFeedback, type MapFeedbackValue } from '../components/MapFeedback'
 import { SelectedPinSheet } from '../components/SelectedPinSheet'
 import { createMapMarkerMarkup } from '../components/mapMarkerMarkup'
@@ -51,6 +53,7 @@ export function MapPage() {
   const [outcomeFilter, setOutcomeFilter] = useState<PinOutcome | ''>('')
   const [repFilter, setRepFilter] = useState<'all' | 'me' | 'team'>('all')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isAddLeadModalOpen, setIsAddLeadModalOpen] = useState(false)
   const [pendingCoordinates, setPendingCoordinates] = useState<{ latitude: number; longitude: number } | null>(null)
   const [editingPin, setEditingPin] = useState<Pin | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -63,6 +66,7 @@ export function MapPage() {
   const [locationStatus, setLocationStatus] = useState<'requesting' | 'located' | 'fallback'>('requesting')
   const currentUser = useCurrentUser()
   const showExport = canExportData(currentUser.role)
+  const canCreatePins = hasCapability(currentUser.role, 'pins:create')
 
   const filteredPins = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase()
@@ -498,6 +502,11 @@ export function MapPage() {
             </svg>
             {isAddingPin ? 'Click Map to Place' : 'Add Pin'}
           </button>
+          {canCreatePins && (
+            <button className="btn btn--secondary" type="button" onClick={() => setIsAddLeadModalOpen(true)} disabled={isLoading}>
+              Add Lead
+            </button>
+          )}
           <button className="btn btn--secondary" type="button" disabled={isLoading}>
             <svg className="icon btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M3 3h18v18H3z" />
@@ -669,6 +678,16 @@ export function MapPage() {
         initialPin={editingPin}
         initialCoordinates={pendingCoordinates}
         isLoading={isLoading}
+      />
+      <AddLeadModal
+        isOpen={isAddLeadModalOpen}
+        onClose={() => setIsAddLeadModalOpen(false)}
+        onCreated={() => {
+          void loadPins()
+          setFeedback({ kind: 'success', message: 'Lead created' })
+        }}
+        userId={currentUser.uid}
+        officeId={currentUser.officeId}
       />
     </div>
   )

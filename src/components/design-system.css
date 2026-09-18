@@ -1,0 +1,215 @@
+/* ===========================================
+   ASG DESIGN SYSTEM — COMPONENT STYLES
+   Unified, premium SaaS aesthetic
+   =========================================== */
+
+/* ---- TYPOGRAPHY RESET ---- */
+/* Remove serif from ALL UI elements — only use for display/brand moments */
+h1, h2, h3, h4, h5, h6,
+.header__logo-text,
+.page__title,
+.page__subtitle,
+.card__title,
+.stat-card__value,
+.setting-item__title,
+.user-editor__header h2,
+.login-page__title,
+.property-details__address,
+.settings-page .page__title,
+.settings-section .card__title {
+  font-family: var(--asg-font-sans) !important;
+  letter-spacing: -0.01em;
+}
+
+/* Display serif ONLY for brand moments */
+.login-page__brand h2,
+.login-page__brand-mark,
+.login-page__title {
+  font-family: var(--asg-font-display) !important;
+}
+
+/* ---- TYPE SCALE REFINEMENT ---- */
+.page__title {
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+}
+
+.page__subtitle {
+  font-size: 0.875rem !important;
+  color: var(--asg-text-on-light-muted) !important;
+}
+
+.card__title {
+  font-size: 1.0625rem !important;
+  font-weight: 600 !important;
+}
+
+/* ---- BUTTON REFINEMENT ---- */
+.btn {
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  border-width: 1px !important;
+}
+
+.btn--primary {
+  background: var(--asg-color-gold-600) !important;
+  color: var(--asg-color-navy-900) !important;
+  border-color: var(--asg-color-gold-600) !important;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--asg-color-gold-500) !important;
+  border-color: var(--asg-color-gold-500) !important;
+}
+
+.btn--secondary {
+  background: transparent !important;
+  color: var(--asg-color-gold-600) !important;
+  border-color: var(--asg-color-gold-600) !important;
+}
+
+.btn--ghost {
+  color: var(--asg-text-on-light-muted) !important;
+  border-color: transparent !important;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--asg-color-surface-300) !important;
+  color: var(--asg-text-on-light-primary) !important;
+}
+
+/* ---- FORM INPUTS ---- */
+.form-input {
+  border-radius: var(--asg-radius-md) !important;
+  font-size: 0.875rem !important;
+}
+
+/* ---- TABLES ---- */
+.table th {
+  font-size: 0.6875rem !important;
+  letter-spacing: 0.06em !important;
+}
+
+.table td {
+  font-size: 0.8125rem !important;
+}
+
+/* ---- BADGES ---- */
+.badge {
+  font-size: 0.6875rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  padding: 0.25rem 0.625rem !important;
+}
+
+/* ---- CARDS ---- */
+.card {
+  border-radius: var(--asg-radius-lg) !important;
+  box-shadow: var(--asg-shadow-sm) !important;
+}
+
+/* ---- STAT CARDS ---- */
+.stat-card {
+  border-radius: var(--asg-radius-lg) !important;
+}
+
+.stat-card__value {
+  font-size: 1.625rem !important;
+  font-weight: 700 !important;
+}
+
+.stat-card__title {
+  font-size: 0.75rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* ---- MODAL / DRAWER ---- */
+.user-editor {
+  border-radius: 0 !important;
+}
+
+/* ---- PROPERTY DETAILS (SelectedPinSheet) ---- */
+.property-details__address {
+  font-family: var(--asg-font-sans) !important;
+  font-size: 1.375rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.property-details__section h3 {
+  font-size: 0.6875rem !important;
+  letter-spacing: 0.08em !important;
+}
+
+.property-details__facts dd {
+  font-weight: 600 !important;
+}
+
+/* ---- ADMIN USERS TABLE ---- */
+.admin-users__table th {
+  font-size: 0.6875rem !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* ---- SETTINGS ---- */
+.setting-item__title {
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+}
+
+.setting-item__description {
+  font-size: 0.75rem !important;
+}
+
+.settings-page .page__title {
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+}
+
+/* ---- DASHBOARD ---- */
+.dashboard-page .page__title {
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+}
+
+/* ---- LOGIN ---- */
+.login-page__title {
+  font-family: var(--asg-font-display) !important;
+  font-size: 1.75rem !important;
+  font-weight: 600 !important;
+}
+
+/* ---- EMPTY STATES ---- */
+.empty-state__title {
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+}
+
+.empty-state__description {
+  font-size: 0.875rem !important;
+}
+
+/* ---- MOBILE NAV ---- */
+.app__mobile-nav-link {
+  font-size: 0.6875rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* ---- MAP POPUP ---- */
+.map-popup__address {
+  font-size: 0.8125rem !important;
+}
+
+.map-popup__detail {
+  font-size: 0.75rem !important;
+}
+
+/* ---- TOAST / FEEDBACK ---- */
+.map-feedback__message {
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+}

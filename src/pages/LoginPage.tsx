@@ -15,8 +15,6 @@ export function LoginPage() {
   const from = (location.state as LoginLocationState | null)?.from ?? '/map'
   const devAuth = isDevAuthActive()
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [loginMode, setLoginMode] = useState<'rep' | 'admin'>('admin')
   const [repName, setRepName] = useState('')
   const [pin, setPin] = useState('')
@@ -49,9 +47,9 @@ export function LoginPage() {
         navigate(result.requiresPinSetup ? '/setup-pin' : from, { replace: true })
         return
       } else {
-        await getAuthService().signIn(email, password)
+        const result = await getAuthService().signInWithAdminPin(pin)
+        navigate(result.requiresPinSetup ? '/setup-pin' : from, { replace: true })
       }
-      navigate(from, { replace: true })
     } catch (caught) {
       if (isAuthError(caught)) {
         setError(caught.message)
@@ -73,9 +71,11 @@ export function LoginPage() {
       </aside>
       <div className="login-page__card">
         <header className="login-page__header">
-          <img src="/logo.png" alt="" className="login-page__logo" width="56" height="56" />
-          <h1 className="login-page__title">ASG Leads Map</h1>
-          <p className="login-page__subtitle">Sign in to continue</p>
+          <div className="login-page__security-badge" aria-label="Secure and professional access">◈ <span>Secure &amp; Professional</span></div>
+          <p className="login-page__eyebrow">Welcome back</p>
+          <h1 className="login-page__title">Admin access</h1>
+          <div className="login-page__rule" aria-hidden="true">⌁</div>
+          <p className="login-page__subtitle">Enter your PIN to continue to the field sales map.</p>
         </header>
 
         <div className="login-page__mode" role="tablist" aria-label="Sign-in type">
@@ -104,36 +104,24 @@ export function LoginPage() {
           </div>
           </> : <>
           <div className="form-group">
-            <label className="form-label" htmlFor="login-email">
-              Email
+            <label className="form-label" htmlFor="login-admin-pin">
+              6-digit admin PIN
             </label>
             <input
-              id="login-email"
-              className="form-input"
-              type="email"
-              name="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="login-password">
-              Password
-            </label>
-            <input
-              id="login-password"
+              id="login-admin-pin"
               className="form-input"
               type="password"
-              name="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              name="admin-pin"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="\d{6}"
+              maxLength={6}
+              value={pin}
+              onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
               required
             />
           </div>
+          <p className="login-page__pin-help">Your PIN is private and is never displayed.</p>
           </>}
 
           <button className="btn btn--primary btn--block" type="submit" disabled={isSubmitting}>
@@ -141,10 +129,7 @@ export function LoginPage() {
           </button>
         </form>
 
-        <p className="login-page__hint">
-          Account access is provisioned by an administrator. Disabled accounts
-          cannot sign in.
-        </p>
+        <p className="login-page__hint">Access is protected for authorised ASG administrators.</p>
 
         {devAuth && (
           <aside className="login-page__dev-hint">

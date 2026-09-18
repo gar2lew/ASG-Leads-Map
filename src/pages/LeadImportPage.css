@@ -21,4 +21,8 @@
 .lead-import__preview .btn { margin-top: 1rem; }
 .lead-import__preview progress { display: block; width: 100%; margin-top: 1rem; accent-color: var(--asg-color-gold-600); }
 .lead-import__success { color: #16734a; font-weight: 700; }
+.lead-import__diagnostics { margin-top: 1rem; padding: 1rem; border: 1px solid var(--asg-color-border); border-radius: .6rem; background: var(--asg-color-surface-alt); }
+.lead-import__diagnostics h3 { margin: 0 0 .5rem; font-size: 1rem; }
+.lead-import__diagnostics ul { margin: 0; padding-left: 1.25rem; }
+.lead-import__diagnostics li + li { margin-top: .35rem; }
 @media (max-width: 650px) { .lead-import__controls, .lead-import__stats { grid-template-columns: 1fr 1fr; } .lead-import__controls { grid-template-columns: 1fr; } }

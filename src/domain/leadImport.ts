@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx'
 import type { Pin } from './pin'
 import { PinOutcome } from './pinOutcome'
 import type { OfficeId } from './roles'
+import { firstLeadValidationReason, validateLeadInput } from './leadValidation'
 
 export interface ImportedLead {
   sourceRow: number
@@ -62,6 +63,17 @@ export function parseLeadWorkbook(data: ArrayBuffer, officeId: OfficeId): LeadIm
         invalidRows.push({ sheet: sheetName, row: index + 2, reason: 'Missing address' })
         return
       }
+      const contactName = text(row['Lead Name'])
+      const contactPhone = text(row['Contact Number'])
+      const validationReason = firstLeadValidationReason(validateLeadInput({
+        address,
+        contactName,
+        contactPhone,
+      }))
+      if (validationReason) {
+        invalidRows.push({ sheet: sheetName, row: index + 2, reason: validationReason })
+        return
+      }
       const sourceStatus = text(row['Lead Status']) || sheetName
       const dedupeKey = text(row['LeadID']) || normaliseLeadAddress(address)
       if (seen.has(dedupeKey)) {
@@ -75,8 +87,8 @@ export function parseLeadWorkbook(data: ArrayBuffer, officeId: OfficeId): LeadIm
         officeId,
         ...(text(row['LeadID']) ? { leadId: text(row['LeadID']) } : {}),
         address,
-        ...(text(row['Lead Name']) ? { contactName: text(row['Lead Name']) } : {}),
-        ...(text(row['Contact Number']) ? { contactPhone: text(row['Contact Number']) } : {}),
+        ...(contactName ? { contactName } : {}),
+        ...(contactPhone ? { contactPhone } : {}),
         ...(text(row['Notes']) ? { notes: text(row['Notes']) } : {}),
         sourceStatus,
         outcome: outcomeFromLeadStatus(sourceStatus, sheetName),
@@ -89,6 +101,24 @@ export function parseLeadWorkbook(data: ArrayBuffer, officeId: OfficeId): LeadIm
 }
 
 export function findImportedDuplicates(records: ImportedLead[], existingPins: Pin[]): Set<string> {
-  const existing = new Set(existingPins.map((pin) => normaliseLeadAddress(pin.address ?? '')))
-  return new Set(records.filter((record) => existing.has(record.dedupeKey)).map((record) => record.dedupeKey))
+  return new Set(records
+    .filter((record) => findLeadDuplicate(existingPins, {
+      address: record.address,
+      source: 'jotform',
+      externalId: record.leadId,
+    }))
+    .map((record) => record.dedupeKey))
+}
+
+export function findLeadDuplicate(
+  existingPins: Pin[],
+  candidate: { address: string; source: 'manual' | 'jotform'; externalId?: string | undefined },
+): Pin | undefined {
+  const addressKey = normaliseLeadAddress(candidate.address)
+  return existingPins.find((pin) => {
+    if (normaliseLeadAddress(pin.address ?? '') === addressKey) return true
+    return Boolean(candidate.externalId
+      && pin.source === candidate.source
+      && pin.externalId === candidate.externalId)
+  })
 }

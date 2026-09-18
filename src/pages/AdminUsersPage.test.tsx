@@ -109,29 +109,32 @@ describe('AdminUsersPage', () => {
   })
 
   it('creates a user and shows the temporary password', async () => {
-    const user = await renderPage()
-    mocks.userAdminService.createUser.mockResolvedValue({
-      user: { uid: 'rep-2', email: 'jane@asg.local', displayName: 'Jane Rep', role: 'rep', active: true },
-      temporaryPassword: 'temp-pass-123',
+      const user = await renderPage()
+      mocks.userAdminService.createUser.mockResolvedValue({
+        user: { uid: 'rep-2', email: 'jane@asg.local', displayName: 'Jane Rep', role: 'rep', active: true },
+        temporaryPassword: 'temp-pass-123',
+      })
+
+      await user.click(screen.getByRole('button', { name: /create user/i }))
+      await user.type(screen.getByLabelText('Email*'), 'jane@asg.local')
+      await user.type(screen.getByLabelText('Display name*'), 'Jane Rep')
+      await user.selectOptions(screen.getByLabelText('Role'), 'rep')
+      // Find the submit button inside the dialog (type="submit")
+      const createDialog = screen.getByRole('dialog', { name: /create user/i })
+      const submitButton = within(createDialog).getByRole('button', { name: 'Create user' })
+      await user.click(submitButton)
+
+      expect(mocks.userAdminService.createUser).toHaveBeenCalledWith({
+        email: 'jane@asg.local',
+        displayName: 'Jane Rep',
+        officeId: 'perth',
+        role: 'rep',
+      })
+
+      const resultText = await screen.findByText(/share this one-time password/i)
+      expect(resultText).toBeInTheDocument()
+      expect(screen.getByText('temp-pass-123')).toBeInTheDocument()
     })
-
-    await user.click(screen.getByRole('button', { name: /add user/i }))
-    await user.type(screen.getByLabelText('Email*'), 'jane@asg.local')
-    await user.type(screen.getByLabelText('Display name*'), 'Jane Rep')
-    await user.selectOptions(screen.getByLabelText('Role'), 'rep')
-    await user.click(screen.getByRole('button', { name: /create user/i }))
-
-    expect(mocks.userAdminService.createUser).toHaveBeenCalledWith({
-      email: 'jane@asg.local',
-      displayName: 'Jane Rep',
-      officeId: 'perth',
-      role: 'rep',
-    })
-
-    const resultText = await screen.findByText(/share this one-time password/i)
-    expect(resultText).toBeInTheDocument()
-    expect(screen.getByText('temp-pass-123')).toBeInTheDocument()
-  })
 
   it('deactivates a user and updates the status display', async () => {
     const user = await renderPage()
