@@ -51,6 +51,8 @@ describe('AddLeadModal', () => {
     const user = userEvent.setup()
     renderModal()
 
+    expect(screen.getByRole('dialog', { name: /add lead/i })).toHaveClass('add-lead-modal--checklist')
+
     await user.click(screen.getByRole('button', { name: /create lead/i }))
 
     const dialog = screen.getByRole('dialog', { name: /add lead/i })

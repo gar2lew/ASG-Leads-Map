@@ -129,7 +129,7 @@ export function AddLeadModal({ isOpen, onClose, onCreated, userId, officeId }: A
 
   return (
     <div className="add-lead-modal-overlay" role="presentation">
-      <div ref={dialogRef} className="add-lead-modal surface--light" role="dialog" aria-modal="true" aria-labelledby="add-lead-title" onKeyDown={handleDialogKeyDown}>
+      <div ref={dialogRef} className="add-lead-modal add-lead-modal--checklist surface--light" role="dialog" aria-modal="true" aria-labelledby="add-lead-title" onKeyDown={handleDialogKeyDown}>
         <header className="add-lead-modal__header">
           <div>
             <p className="add-lead-modal__eyebrow">Lead intake</p>
