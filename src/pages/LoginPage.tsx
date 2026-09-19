@@ -63,11 +63,28 @@ export function LoginPage() {
 
   return (
     <main className="login-page login-experience">
-      <aside className="login-page__brand" aria-label="ASG Leads Map">
+      <aside className="login-page__brand login-page__brand--checklist" aria-label="ASG Leads Map">
         <span className="login-page__brand-mark">ASG</span>
         <p className="login-page__brand-overline">Amplify Solutions Group</p>
         <h2>Leads Map<br />with Live Pins</h2>
         <p>Lead Generation Importing</p>
+        <ul className="login-page__assurances" aria-label="Platform assurances">
+          <li>
+            <span className="login-page__assurance-icon" aria-hidden="true">✓</span>
+            <strong>Compliant</strong>
+            <span>Built for Australian standards</span>
+          </li>
+          <li>
+            <span className="login-page__assurance-icon" aria-hidden="true">▤</span>
+            <strong>Complete</strong>
+            <span>All lead details in one place</span>
+          </li>
+          <li>
+            <span className="login-page__assurance-icon" aria-hidden="true">⌑</span>
+            <strong>Secure</strong>
+            <span>Your data is always protected</span>
+          </li>
+        </ul>
       </aside>
       <div className="login-page__card">
         <header className="login-page__header">

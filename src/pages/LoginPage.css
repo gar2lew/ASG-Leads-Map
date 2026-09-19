@@ -124,3 +124,81 @@
 .login-page__mode { display: flex; gap: .5rem; margin: 1rem 0 1.25rem; border-bottom: 1px solid var(--asg-color-border); }
 .login-page__mode button { border: 0; background: none; padding: .65rem .8rem; color: var(--asg-color-text-muted); cursor: pointer; }
 .login-page__mode button.is-active { color: var(--asg-color-navy-900); border-bottom: 2px solid var(--asg-color-gold-600); font-weight: 700; }
+
+/* Checklist-aligned login composition. Keep these selectors scoped so shared surface rules cannot flatten the hero. */
+.login-experience.login-page {
+  width: min(1180px, calc(100% - 2rem));
+  min-height: min(760px, calc(100vh - 2rem));
+  margin: 1rem auto;
+  grid-template-columns: minmax(390px, .92fr) minmax(500px, 1.08fr);
+  background: #f8f3e8;
+  border: 1px solid var(--asg-color-gold-500);
+  border-radius: 1.5rem;
+  box-shadow: 0 1.5rem 3.5rem rgba(11, 22, 35, .18);
+}
+
+.login-experience .login-page__brand--checklist {
+  min-height: 100%;
+  padding: clamp(2.75rem, 5vw, 4.75rem) !important;
+  background: #07182b !important;
+  background-image: radial-gradient(circle at 18% 92%, rgba(45, 74, 110, .22), transparent 35%), linear-gradient(165deg, #0b2038 0%, #061426 100%) !important;
+  justify-content: flex-start;
+}
+
+.login-experience .login-page__brand--checklist::before,
+.login-experience .login-page__brand--checklist::after {
+  position: absolute;
+  display: block;
+  content: '';
+  pointer-events: none;
+  border: 1px solid rgba(212, 184, 122, .28);
+  border-radius: 50%;
+}
+
+.login-experience .login-page__brand--checklist::before {
+  top: -13rem;
+  right: -7rem;
+  width: 30rem;
+  height: 42rem;
+}
+
+.login-experience .login-page__brand--checklist::after {
+  right: -12rem;
+  bottom: -16rem;
+  width: 31rem;
+  height: 31rem;
+  border-color: rgba(45, 74, 110, .3);
+}
+
+.login-experience .login-page__brand-mark,
+.login-experience .login-page__brand-overline,
+.login-experience .login-page__brand h2,
+.login-experience .login-page__brand > p,
+.login-experience .login-page__assurances { position: relative; z-index: 1; }
+
+.login-experience .login-page__brand h2 { margin-top: clamp(4rem, 10vh, 7rem); font-size: clamp(2.5rem, 4.5vw, 4rem) !important; color: #fff; }
+.login-experience .login-page__brand > p:last-of-type { max-width: 22rem; color: #d6e0eb; font-size: 1rem; }
+
+.login-page__assurances {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: auto 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.login-page__assurances li { display: flex; flex-direction: column; align-items: center; gap: .3rem; color: #d6e0eb; text-align: center; font-size: .7rem; line-height: 1.35; }
+.login-page__assurances strong { color: #f1cc70; font-family: var(--asg-font-display); font-size: .95rem; font-weight: 500; }
+.login-page__assurance-icon { display: grid; width: 2.9rem; height: 2.9rem; place-items: center; margin-bottom: .35rem; color: #f1cc70; border: 1px solid #b08d46; border-radius: 50%; font-size: 1.1rem; }
+
+.login-experience .login-page__card { align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: clamp(2.5rem, 6vw, 5.5rem) !important; background: #f8f3e8; }
+.login-experience .login-page__header { margin-bottom: 2rem; }
+.login-experience .login-page__security-badge { margin-bottom: 2.75rem; }
+.login-experience .login-page__form .form-input { background: #fff; }
+
+@media (max-width: 800px) {
+  .login-experience.login-page { width: 100%; min-height: 100vh; margin: 0; border: 0; border-radius: 0; }
+  .login-experience .login-page__brand--checklist { display: none !important; }
+  .login-experience .login-page__card { min-height: 100vh; padding: 2.5rem 1.25rem !important; }
+}
