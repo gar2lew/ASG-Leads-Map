@@ -15,13 +15,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   try {
     const { getAdminAuth, getAdminDb } = await import('../_lib/admin.js')
-    const snapshot = await (await getAdminDb()).collection('users').where('role', '==', 'super_admin').where('active', '==', true).limit(2).get()
-    if (snapshot.size !== 1) {
+    const snapshot = await (await getAdminDb()).collection('users').where('role', '==', 'super_admin').limit(2).get()
+    const activeAdmins = snapshot.docs.filter((document) => document.data().active !== false)
+    if (activeAdmins.length !== 1) {
       res.status(401).json({ error: 'Invalid administrator PIN.' })
       return
     }
 
-    const document = snapshot.docs[0]
+    const document = activeAdmins[0]
     const profile = document.data()
     if (typeof profile.pinHash !== 'string' || typeof profile.pinSalt !== 'string' || !matchesPin(pin, { pinHash: profile.pinHash, pinSalt: profile.pinSalt })) {
       res.status(401).json({ error: 'Invalid administrator PIN.' })
