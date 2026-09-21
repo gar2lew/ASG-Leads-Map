@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage'
 import { AdminUsersPage } from './pages/AdminUsersPage'
 import { LeadImportPage } from './pages/LeadImportPage'
 import { SetupPinPage } from './pages/SetupPinPage'
+import { SetupAdminPage } from './pages/SetupAdminPage'
 import { TerritoriesPage } from './pages/TerritoriesPage'
 import './App.css'
 
@@ -17,6 +18,7 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/setup-admin" element={<SetupAdminPage />} />
           <Route element={<RequireAuth />}>
             <Route path="/" element={<Navigate to="/map" replace />} />
             <Route path="/map" element={<MapPage />} />

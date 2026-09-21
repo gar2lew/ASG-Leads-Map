@@ -1,15 +1,5 @@
-import { timingSafeEqual } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-
-function validPin(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{6}$/.test(value)
-}
-
-function matchesConfiguredPin(pin: string): boolean {
-  const configured = process.env.ADMIN_LOGIN_PIN
-  if (!configured || !/^\d{6}$/.test(configured)) return false
-  return timingSafeEqual(Buffer.from(pin), Buffer.from(configured))
-}
+import { isSixDigitPin, matchesPin } from '../_lib/pinCredentials.js'
 
 /** Administrator sign-in by the single server-configured six-digit PIN. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -19,27 +9,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const pin = req.body?.pin
-  if (!validPin(pin)) {
+  if (!isSixDigitPin(pin)) {
     res.status(400).json({ error: 'Enter a valid six-digit administrator PIN.' })
     return
   }
-  if (!matchesConfiguredPin(pin)) {
-    res.status(401).json({ error: 'Invalid administrator PIN.' })
-    return
-  }
-
   try {
     const { getAdminAuth, getAdminDb } = await import('../_lib/admin.js')
-    const snapshot = await (await getAdminDb()).collection('users').where('role', '==', 'super_admin').limit(2).get()
+    const snapshot = await (await getAdminDb()).collection('users').where('role', '==', 'super_admin').where('active', '==', true).limit(2).get()
     if (snapshot.size !== 1) {
-      res.status(403).json({ error: 'The administrator account is not configured.' })
+      res.status(401).json({ error: 'Invalid administrator PIN.' })
       return
     }
 
     const document = snapshot.docs[0]
     const profile = document.data()
-    if (profile.active === false) {
-      res.status(403).json({ error: 'This administrator account has been disabled.' })
+    if (typeof profile.pinHash !== 'string' || typeof profile.pinSalt !== 'string' || !matchesPin(pin, { pinHash: profile.pinHash, pinSalt: profile.pinSalt })) {
+      res.status(401).json({ error: 'Invalid administrator PIN.' })
       return
     }
 

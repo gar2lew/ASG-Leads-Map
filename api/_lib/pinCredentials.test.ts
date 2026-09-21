@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createPinCredentials, isSixDigitPin, matchesPin } from './pinCredentials'
+import { createPinCredentials, isSixDigitPin, matchesPin } from './pinCredentials.js'
 
 describe('admin PIN credentials', () => {
   it('verifies only the original PIN', () => {

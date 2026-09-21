@@ -14,6 +14,7 @@ export interface AuthService {
   onUserChanged(callback: (user: CurrentUser | null) => void): () => void
   signIn(email: string, password: string): Promise<CurrentUser>
   signInWithAdminPin(pin: string): Promise<{ user: CurrentUser; requiresPinSetup: boolean }>
+  bootstrapAdmin(input: { setupCode: string; email: string; password: string; pin: string }): Promise<CurrentUser>
   signInWithPin(displayName: string, pin: string): Promise<{ user: CurrentUser; requiresPinSetup: boolean }>
   signOut(): Promise<void>
   /** Raw ID token used to authorize server API calls; null outside Firebase. */

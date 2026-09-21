@@ -76,15 +76,12 @@ firebase deploy --only firestore:rules
 
 ### First Admin Bootstrap
 
-1. Configure Firebase project and Admin SDK credentials (service account or `GOOGLE_APPLICATION_CREDENTIALS`).
-2. Create the first admin user in Firebase Authentication (Email/Password).
-3. Run the bootstrap script to seed their Firestore profile:
+1. Configure the Firebase Admin service-account variables in Vercel: `FIREBASE_ADMIN_PROJECT_ID`, `FIREBASE_ADMIN_CLIENT_EMAIL`, and `FIREBASE_ADMIN_PRIVATE_KEY`.
+2. Generate a random `ADMIN_SETUP_CODE` and add it as a sensitive Vercel Production variable.
+3. Open `/setup-admin`, enter the one-time code, your administrator email/password, and a six-digit PIN.
+4. Sign out and verify the Administrator login with the new PIN. Setup replay is rejected after the first successful bootstrap.
 
-```bash
-npm run bootstrap:admin admin@yourdomain.com
-```
-
-This writes `users/{uid}` with `role: 'admin'`, `active: true`. Subsequent user creation happens via the **Admin Users** UI (Admin role required) or the backend API.
+The PIN is stored as a salted hash in the sole active `super_admin` profile. Subsequent user creation happens via the **Admin Users** UI or backend API.
 
 ### Admin API Architecture
 

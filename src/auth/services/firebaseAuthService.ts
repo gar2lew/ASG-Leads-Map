@@ -155,6 +155,15 @@ export function createFirebaseAuthService(): AuthService {
       emit(current)
       return { user: current, requiresPinSetup: body.requiresPinSetup === true }
     },
+    async bootstrapAdmin(input) {
+      const response = await fetch('/api/auth/bootstrap-admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
+      const body = await response.json().catch(() => ({})) as { token?: string; error?: string }
+      if (!response.ok || !body.token) throw new AuthError('invalid-credentials', body.error ?? 'Unable to complete administrator setup.')
+      const credential = await signInWithCustomToken(auth, body.token)
+      const profileUser = await loadFirebaseProfile(credential.user.uid, credential.user.email ?? '')
+      if (!profileUser || profileUser.role !== 'super_admin') throw new AuthError('disabled-account', 'Administrator setup did not create an active account.')
+      current = profileUser; emit(current); return profileUser
+    },
     async signInWithPin(displayName, pin) {
       const response = await fetch('/api/auth/rep-login', {
         method: 'POST',

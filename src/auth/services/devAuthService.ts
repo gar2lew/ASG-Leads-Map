@@ -125,6 +125,9 @@ export function createDevAuthService(): AuthService {
       emit(user)
       return { user, requiresPinSetup: false }
     },
+    async bootstrapAdmin() {
+      user = DEV_USERS[Role.SuperAdmin]; resolved = true; persistSession(user.email); emit(user); return user
+    },
     async signInWithPin(displayName, pin) {
       const account = Object.values(DEV_USERS).find((candidate) => candidate.name === displayName)
       if (!account || pin !== '0000') throw new AuthError('invalid-credentials', 'That name or PIN is not recognised.')

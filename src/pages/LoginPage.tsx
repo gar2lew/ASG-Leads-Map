@@ -159,6 +159,7 @@ export function LoginPage() {
             </p>
           </aside>
         )}
+        <p className="login-page__hint"><a href="/setup-admin">Set up the first administrator</a></p>
       </div>
     </main>
   )
