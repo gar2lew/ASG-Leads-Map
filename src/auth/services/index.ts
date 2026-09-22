@@ -7,14 +7,12 @@ import { createFirebaseUserAdminService } from './firebaseUserAdminService'
 /**
  * Selects the auth implementation.
  *
- * The dev harness is an isolated in-memory stand-in (localStorage-sessioned)
- * used only when running under Vite's dev server. In production builds
- * `import.meta.env.DEV` is statically replaced with `false`, so this branch
- * — and the whole dev harness module graph — is dead-code eliminated. The
- * VITE_USE_DEV_AUTH flag is therefore never honoured in production.
+ * The dev harness is an isolated in-memory stand-in (localStorage-sessioned).
+ * It is opt-in for production testing via VITE_USE_DEV_AUTH=true and must not
+ * be enabled on a real production rollout.
  */
 function shouldUseDevHarness(): boolean {
-  return import.meta.env.DEV && import.meta.env['VITE_USE_DEV_AUTH'] !== 'false'
+  return import.meta.env['VITE_USE_DEV_AUTH'] === 'true' || (import.meta.env.DEV && import.meta.env['VITE_USE_DEV_AUTH'] !== 'false')
 }
 
 export function isDevAuthActive(): boolean {
