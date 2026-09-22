@@ -23,7 +23,7 @@ function buildCredential(firebaseApp: typeof import('firebase-admin/app')) {
 
   if (projectId && clientEmail && privateKey) {
     // Normalize private key: Vercel stores newlines as \n literals
-    privateKey = privateKey.replace(/\\n/g, '\n')
+    privateKey = privateKey.trim().replace(/^['"]|['"]$/g, '').replace(/\\n/g, '\n')
     return firebaseApp.cert({ projectId, clientEmail, privateKey })
   }
 
