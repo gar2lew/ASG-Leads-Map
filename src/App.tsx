@@ -10,6 +10,7 @@ import { LeadImportPage } from './pages/LeadImportPage'
 import { SetupPinPage } from './pages/SetupPinPage'
 import { SetupAdminPage } from './pages/SetupAdminPage'
 import { TerritoriesPage } from './pages/TerritoriesPage'
+import { CallLogPage } from './pages/CallLogPage'
 import './App.css'
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
             <Route path="/" element={<Navigate to="/map" replace />} />
             <Route path="/map" element={<MapPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/calls" element={<CallLogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/setup-pin" element={<SetupPinPage />} />
             <Route

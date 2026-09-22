@@ -72,6 +72,7 @@ export function Layout({ children }: LayoutProps) {
                   </NavLink>
                 </li>
               )}
+              <li><NavLink to="/calls" className={({ isActive }) => `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}>Call Log</NavLink></li>
               {showAdminUsers && (
                 <li>
                   <NavLink
