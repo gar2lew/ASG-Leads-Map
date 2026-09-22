@@ -1,0 +1,9 @@
+.call-log-page .card { border: 1px solid color-mix(in srgb, var(--asg-color-gold-400) 18%, var(--asg-color-surface-300)); box-shadow: 0 18px 40px color-mix(in srgb, var(--asg-color-surface-900) 22%, transparent); }
+.call-log-page .card__header { align-items: center; }
+.call-log-page .card__title { font-family: Georgia, 'Times New Roman', serif; letter-spacing: -0.02em; }
+.call-log-page table { border-collapse: separate; border-spacing: 0; font-size: .82rem; }
+.call-log-page th { position: sticky; top: 0; z-index: 1; background: var(--asg-color-surface-200); color: var(--asg-text-on-light-muted); font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.call-log-page th, .call-log-page td { padding: .7rem .8rem; border-bottom: 1px solid var(--asg-color-surface-300); text-align: left; vertical-align: top; }
+.call-log-page tbody tr:hover { background: color-mix(in srgb, var(--asg-color-gold-100) 28%, transparent); }
+.call-log-page textarea.form-input { min-height: 5.5rem; resize: vertical; }
+.call-log-page input[type='file'] { display: block; max-width: 15rem; font-size: .75rem; }

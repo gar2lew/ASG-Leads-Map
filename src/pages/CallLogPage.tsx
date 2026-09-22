@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useCurrentUser } from '../auth'
 import { csvToArray } from '../domain/csv'
+import './CallLogPage.css'
 
 type Row = { id:string; date:string; leadName:string; address:string; phone:string; notes:string; updateLead:boolean; renterOwner:string; superannuation:string; repName:string; leadStatus:string; callTimestamp:string; callResult:string; leadId:string }
 const KEY='asg-call-log'; const headers=['Date','Lead Name','Address','Contact Number','Notes','Update Lead','Renter/Owner','Superannuation','Rep Name','Lead Status','Call Timestamp','Call Result','LeadID']; const statuses=['New','Lead','No Answer','DQ','Not Interested','Qualified','Appointment Set']; const results=['Connected','No Answer','Voicemail','Not Interested','Follow-up']
