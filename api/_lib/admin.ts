@@ -20,6 +20,11 @@ function buildCredential(firebaseApp: typeof import('firebase-admin/app')) {
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
   let privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY
+  const encodedPrivateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY_BASE64
+
+  if (projectId && clientEmail && encodedPrivateKey) {
+    privateKey = Buffer.from(encodedPrivateKey, 'base64').toString('utf8')
+  }
 
   if (projectId && clientEmail && privateKey) {
     // Normalize private key: Vercel stores newlines as \n literals
