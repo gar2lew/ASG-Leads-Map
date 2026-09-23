@@ -21,6 +21,7 @@ export function LoginPage() {
   const [repNames, setRepNames] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPin, setShowPin] = useState(false)
 
   useEffect(() => {
     if (devAuth) return
@@ -134,7 +135,7 @@ export function LoginPage() {
             <input
               id="login-admin-pin"
               className="form-input"
-              type="password"
+              type={showPin ? 'text' : 'password'}
               name="admin-pin"
               inputMode="numeric"
               autoComplete="one-time-code"
@@ -144,6 +145,7 @@ export function LoginPage() {
               onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
               required
             />
+            <button className="login-page__pin-toggle" type="button" onClick={() => setShowPin((visible) => !visible)}>{showPin ? 'Hide PIN' : 'Show PIN'}</button>
           </div>
           <p className="login-page__pin-help">Your PIN is private and is never displayed.</p>
           </>}

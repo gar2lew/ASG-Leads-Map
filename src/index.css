@@ -595,6 +595,17 @@
   --color-text-muted: var(--asg-text-on-light-muted);
 }
 
+[data-theme="dark"] .page__title,
+[data-theme="dark"] .page__subtitle,
+[data-theme="dark"] .card__title,
+[data-theme="high-contrast"] .page__title,
+[data-theme="high-contrast"] .page__subtitle,
+[data-theme="high-contrast"] .card__title,
+[data-theme="dark"] label,
+[data-theme="high-contrast"] label { color: var(--asg-text-on-light-primary) !important; }
+[data-theme="dark"] .page__subtitle,
+[data-theme="high-contrast"] .page__subtitle { color: var(--asg-text-on-light-secondary) !important; }
+
 /* ===========================================
    BASE RESET
    =========================================== */

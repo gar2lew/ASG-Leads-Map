@@ -203,6 +203,8 @@
 .login-experience .login-page__mode button.is-active { color: #0f172a !important; }
 .login-experience .form-label { color: #1e293b !important; }
 .login-experience .login-page__error { color: #991b1b; background: #fee2e2; border-color: #fecaca; }
+.login-experience .form-group { position: relative; }
+.login-page__pin-toggle { align-self: flex-end; margin-top: -1.9rem; margin-right: .5rem; border: 0; background: transparent; color: #8a6a22; font-size: .75rem; font-weight: 700; cursor: pointer; }
 
 @media (max-width: 800px) {
   .login-experience.login-page { width: 100%; min-height: 100vh; margin: 0; border: 0; border-radius: 0; }
