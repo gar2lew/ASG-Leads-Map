@@ -196,6 +196,13 @@
 .login-experience .login-page__header { margin-bottom: 2rem; }
 .login-experience .login-page__security-badge { margin-bottom: 2.75rem; }
 .login-experience .login-page__form .form-input { background: #fff; }
+.login-experience .login-page__subtitle,
+.login-experience .login-page__pin-help,
+.login-experience .login-page__hint,
+.login-experience .login-page__mode button { color: #475569 !important; }
+.login-experience .login-page__mode button.is-active { color: #0f172a !important; }
+.login-experience .form-label { color: #1e293b !important; }
+.login-experience .login-page__error { color: #991b1b; background: #fee2e2; border-color: #fecaca; }
 
 @media (max-width: 800px) {
   .login-experience.login-page { width: 100%; min-height: 100vh; margin: 0; border: 0; border-radius: 0; }

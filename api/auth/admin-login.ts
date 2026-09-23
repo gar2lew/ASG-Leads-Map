@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { isSixDigitPin, matchesPin } from '../_lib/pinCredentials.js'
 
@@ -24,7 +25,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const document = activeAdmins[0]
     const profile = document.data()
-    if (typeof profile.pinHash !== 'string' || typeof profile.pinSalt !== 'string' || !matchesPin(pin, { pinHash: profile.pinHash, pinSalt: profile.pinSalt })) {
+    const storedPinMatches = typeof profile.pinHash === 'string' && typeof profile.pinSalt === 'string'
+      ? matchesPin(pin, { pinHash: profile.pinHash, pinSalt: profile.pinSalt })
+      : (() => {
+          const configured = process.env.ADMIN_LOGIN_PIN
+          if (!configured || configured.length !== pin.length) return false
+          return timingSafeEqual(Buffer.from(pin), Buffer.from(configured))
+        })()
+    if (!storedPinMatches) {
       res.status(401).json({ error: 'Invalid administrator PIN.' })
       return
     }
