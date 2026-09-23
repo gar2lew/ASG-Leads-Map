@@ -426,7 +426,7 @@
 /* ===========================================
    HIGH CONTRAST MODE (light)
    =========================================== */
-[data-theme="high-contrast"] {
+[data-theme="light"] {
   /* Surface */
   --asg-color-canvas: #F5F5F5;
   --asg-color-ivory: #FFFFFF;
@@ -567,6 +567,32 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* High-contrast is intentionally dark and must win regardless of OS preference. */
+[data-theme="high-contrast"] {
+  --asg-color-canvas: #07111D;
+  --asg-color-ivory: #0D1B2A;
+  --asg-color-ivory-strong: #14253D;
+  --asg-color-surface-100: #081522;
+  --asg-color-surface-200: #0D1B2A;
+  --asg-color-surface-300: #1A2A44;
+  --asg-color-surface-400: #2E4A6E;
+  --asg-color-gold-600: #FFCC00;
+  --asg-color-gold-500: #FFD700;
+  --asg-text-on-light-primary: #FFFFFF;
+  --asg-text-on-light-secondary: #E6EDF5;
+  --asg-text-on-light-muted: #B9C7D8;
+  --asg-text-on-light-placeholder: #9FB0C4;
+  --asg-text-on-light-disabled: #8294AA;
+  --color-bg: var(--asg-color-surface-100);
+  --color-bg-elevated: var(--asg-color-surface-200);
+  --color-bg-hover: var(--asg-color-surface-300);
+  --color-border: #38516F;
+  --color-border-strong: #6B86A8;
+  --color-text: var(--asg-text-on-light-primary);
+  --color-text-secondary: var(--asg-text-on-light-secondary);
+  --color-text-muted: var(--asg-text-on-light-muted);
 }
 
 /* ===========================================
