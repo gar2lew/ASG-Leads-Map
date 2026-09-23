@@ -116,6 +116,9 @@ export function createDevAuthService(): AuthService {
       emit(user)
       return user
     },
+    async signInWithGoogle() {
+      user = DEV_USERS[Role.SuperAdmin]; resolved = true; persistSession(user.email); emit(user); return user
+    },
     async signInWithAdminPin(pin) {
       const account = DEV_USERS[Role.SuperAdmin]
       if (pin !== '123456') throw new AuthError('invalid-credentials', 'Invalid administrator PIN.')

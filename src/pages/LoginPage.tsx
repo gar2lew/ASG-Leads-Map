@@ -61,6 +61,13 @@ export function LoginPage() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    setError(null); setIsSubmitting(true)
+    try { await getAuthService().signInWithGoogle(); navigate(from, { replace: true }) }
+    catch (caught) { setError(isAuthError(caught) ? caught.message : 'Unable to sign in with Google. Please try again.') }
+    finally { setIsSubmitting(false) }
+  }
+
   return (
     <main className="login-page login-experience">
       <aside className="login-page__brand login-page__brand--checklist" aria-label="ASG Leads Map">
@@ -145,6 +152,11 @@ export function LoginPage() {
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        <div className="login-page__divider"><span>or</span></div>
+        <button className="btn btn--secondary btn--block" type="button" onClick={handleGoogleSignIn} disabled={isSubmitting}>
+          Continue with Google
+        </button>
 
         <p className="login-page__hint">Access is protected for authorised ASG administrators.</p>
 

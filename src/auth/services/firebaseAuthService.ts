@@ -2,6 +2,8 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signInWithCustomToken,
   signOut as firebaseSignOut,
 } from 'firebase/auth'
@@ -129,6 +131,17 @@ export function createFirebaseAuthService(): AuthService {
         current = profileUser
         emit(current)
         return current
+      } catch (error) {
+        if (error instanceof AuthError) throw error
+        throw firebaseErrorToAuthError(error)
+      }
+    },
+    async signInWithGoogle() {
+      try {
+        const credential = await signInWithPopup(auth, new GoogleAuthProvider())
+        const profileUser = await loadFirebaseProfile(credential.user.uid, credential.user.email ?? '')
+        if (!profileUser) throw new AuthError('disabled-account', 'This Google account is not provisioned. Contact an administrator.')
+        current = profileUser; emit(current); return current
       } catch (error) {
         if (error instanceof AuthError) throw error
         throw firebaseErrorToAuthError(error)

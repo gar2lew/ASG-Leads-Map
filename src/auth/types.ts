@@ -13,6 +13,7 @@ export interface AuthService {
   /** Subscribe to sign-in / sign-out changes. Returns an unsubscribe fn. */
   onUserChanged(callback: (user: CurrentUser | null) => void): () => void
   signIn(email: string, password: string): Promise<CurrentUser>
+  signInWithGoogle(): Promise<CurrentUser>
   signInWithAdminPin(pin: string): Promise<{ user: CurrentUser; requiresPinSetup: boolean }>
   bootstrapAdmin(input: { setupCode: string; email: string; password: string; pin: string }): Promise<CurrentUser>
   signInWithPin(displayName: string, pin: string): Promise<{ user: CurrentUser; requiresPinSetup: boolean }>
