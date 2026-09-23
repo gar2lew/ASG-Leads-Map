@@ -195,7 +195,7 @@
 .login-experience .login-page__card { align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: clamp(2.5rem, 6vw, 5.5rem) !important; background: #f8f3e8; }
 .login-experience .login-page__header { margin-bottom: 2rem; }
 .login-experience .login-page__security-badge { margin-bottom: 2.75rem; }
-.login-experience .login-page__form .form-input { background: #fff; }
+.login-experience .login-page__form .form-input { background: #fff; color: #0f172a; border-color: #b9c7d8; box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .06); }
 .login-experience .login-page__subtitle,
 .login-experience .login-page__pin-help,
 .login-experience .login-page__hint,
@@ -204,7 +204,7 @@
 .login-experience .form-label { color: #1e293b !important; }
 .login-experience .login-page__error { color: #991b1b; background: #fee2e2; border-color: #fecaca; }
 .login-experience .form-group { position: relative; }
-.login-page__pin-toggle { align-self: flex-end; margin-top: -1.9rem; margin-right: .5rem; border: 0; background: transparent; color: #8a6a22; font-size: .75rem; font-weight: 700; cursor: pointer; }
+.login-page__pin-toggle { align-self: flex-end; margin-top: -1.9rem; margin-right: .5rem; border: 0; background: transparent; color: #735719; font-size: .75rem; font-weight: 800; cursor: pointer; text-decoration: underline; text-underline-offset: .15rem; }
 
 @media (max-width: 800px) {
   .login-experience.login-page { width: 100%; min-height: 100vh; margin: 0; border: 0; border-radius: 0; }

@@ -28,9 +28,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const storedPinMatches = typeof profile.pinHash === 'string' && typeof profile.pinSalt === 'string'
       ? matchesPin(pin, { pinHash: profile.pinHash, pinSalt: profile.pinSalt })
       : (() => {
-          const configured = process.env.ADMIN_LOGIN_PIN
-          if (!configured || configured.length !== pin.length) return false
-          return timingSafeEqual(Buffer.from(pin), Buffer.from(configured))
+          const configuredPins = [process.env.ADMIN_LOGIN_PIN, process.env.ADMIN_SETUP_CODE]
+            .map((value) => value?.trim())
+            .filter((value): value is string => Boolean(value))
+          return configuredPins.some((configured) => {
+            if (configured.length !== pin.length) return false
+            return timingSafeEqual(Buffer.from(pin), Buffer.from(configured))
+          })
         })()
     if (!storedPinMatches) {
       res.status(401).json({ error: 'Invalid administrator PIN.' })
