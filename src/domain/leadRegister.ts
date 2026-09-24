@@ -103,7 +103,7 @@ export function filterLeadRecords(records: LeadRecord[], filters: LeadFilters, t
   return records.filter((record) => {
     const searchable = [record.leadName, record.address, record.phone, record.notes, record.repName, record.leadStatus, record.callResult].join(' ').toLowerCase()
     if (query && !searchable.includes(query)) return false
-    if (filters.status && filters.status !== 'all' && record.leadStatus !== filters.status) return false
+    if (filters.status && filters.status !== 'all' && record.leadStatus !== filters.status && record.qualification !== filters.status.toLowerCase().replace(' ', '_')) return false
     if (filters.rep && filters.rep !== 'all' && record.repName !== filters.rep) return false
     if (filters.office && filters.office !== 'all' && record.office !== filters.office) return false
     if (filters.timely === 'sent' && !record.timelySynced) return false

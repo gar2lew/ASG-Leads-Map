@@ -46,5 +46,6 @@ describe('lead register domain model', () => {
     expect(filterLeadRecords(records, { query: 'Ava', office: 'perth', callbackDue: true }, '2026-09-24')).toHaveLength(1)
     expect(filterLeadRecords(records, { timely: 'sent' }, '2026-09-24')).toEqual([records[1]])
     expect(filterLeadRecords(records, { status: 'New' }, '2026-09-24')).toHaveLength(2)
+    expect(filterLeadRecords([{ ...records[0], qualification: 'qualified' }], { status: 'Qualified' }, '2026-09-24')).toHaveLength(1)
   })
 })
