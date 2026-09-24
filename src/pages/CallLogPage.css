@@ -7,3 +7,8 @@
 .call-log-page tbody tr:hover { background: color-mix(in srgb, var(--asg-color-gold-100) 28%, transparent); }
 .call-log-page textarea.form-input { min-height: 5.5rem; resize: vertical; }
 .call-log-page input[type='file'] { display: block; max-width: 15rem; font-size: .75rem; }
+.call-centre-command { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
+.call-centre-command__actions { display: flex; gap: .55rem; }
+.call-centre-command__actions input[type='file'] { display: none; }
+.call-centre-import-status { margin: -.35rem 0 0; color: var(--asg-color-success-500); font-size: .82rem; font-weight: 700; }
+@media (max-width: 700px) { .call-centre-command { align-items: stretch; flex-direction: column; } .call-centre-command__actions { width: 100%; } .call-centre-command__actions > * { flex: 1; } }
