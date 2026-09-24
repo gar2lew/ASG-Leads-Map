@@ -437,30 +437,30 @@
    HIGH CONTRAST MODE (light)
    =========================================== */
 [data-theme="light"] {
-  /* Surface */
-  --asg-color-canvas: #F5F5F5;
-  --asg-color-ivory: #FFFFFF;
+  /* Premium ivory canvas with navy surfaces. */
+  --asg-color-canvas: #F4F1EA;
+  --asg-color-ivory: #FFFDF8;
   --asg-color-ivory-strong: #FFFFFF;
-  --asg-color-surface-100: #FFFFFF;
-  --asg-color-surface-200: #F5F5F5;
-  --asg-color-surface-300: #E0E0E0;
-  --asg-color-surface-400: #CCCCCC;
+  --asg-color-surface-100: #F4F1EA;
+  --asg-color-surface-200: #FFFDF8;
+  --asg-color-surface-300: #E8E0D2;
+  --asg-color-surface-400: #D6C8AD;
 
   /* Accent Gold */
-  --asg-color-gold-600: #CC9900;
-  --asg-color-gold-500: #CC9900;
-  --asg-color-gold-400: #E6B800;
-  --asg-color-gold-300: #FFCC00;
-  --asg-color-gold-200: #FFD700;
-  --asg-color-gold-100: #FFF8E1;
-  --asg-color-gold-50: #FFFDE7;
+  --asg-color-gold-600: #A97D22;
+  --asg-color-gold-500: #C9972F;
+  --asg-color-gold-400: #D9B45A;
+  --asg-color-gold-300: #E8D19A;
+  --asg-color-gold-200: #F0E2CC;
+  --asg-color-gold-100: #F5ECDF;
+  --asg-color-gold-50: #FAF6F0;
 
   /* Text on Light Surfaces - High Contrast */
-  --asg-text-on-light-primary: #000000;
-  --asg-text-on-light-secondary: #1A1A1A;
-  --asg-text-on-light-muted: #333333;
-  --asg-text-on-light-placeholder: #666666;
-  --asg-text-on-light-disabled: #666666;
+  --asg-text-on-light-primary: #172235;
+  --asg-text-on-light-secondary: #475569;
+  --asg-text-on-light-muted: #64748B;
+  --asg-text-on-light-placeholder: #718096;
+  --asg-text-on-light-disabled: #94A3B8;
 
   /* Status */
   --asg-color-success-bg: #E8F5E9;
@@ -507,8 +507,8 @@
   --color-bg: var(--asg-color-surface-100);
   --color-bg-elevated: var(--asg-color-surface-200);
   --color-bg-hover: var(--asg-color-surface-300);
-  --color-border: #000000;
-  --color-border-strong: #000000;
+  --color-border: #D6C8AD;
+  --color-border-strong: #B79A5A;
   --color-text: var(--asg-text-on-light-primary);
   --color-text-secondary: var(--asg-text-on-light-secondary);
   --color-text-muted: var(--asg-text-on-light-muted);
@@ -577,6 +577,21 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Semantic aliases must be declared after legacy theme blocks so page-level
+   components cannot accidentally inherit the old high-contrast palette. */
+[data-theme="light"] {
+  --color-bg: #F4F1EA;
+  --color-bg-elevated: #FFFDF8;
+  --color-bg-hover: #F5ECDF;
+  --color-border: #D6C8AD;
+  --color-border-strong: #B79A5A;
+  --color-text: #172235;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748B;
+  --color-text-placeholder: #718096;
+  --color-text-inverse: #FFFDF8;
 }
 
 /* High-contrast is intentionally dark and must win regardless of OS preference. */

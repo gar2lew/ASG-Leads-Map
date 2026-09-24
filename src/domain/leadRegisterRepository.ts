@@ -1,5 +1,5 @@
 import { arrayToCsv, csvToArray } from './csv'
-import { appendActivity, migrateLeadRecord, type LeadActivity, type LeadRecord } from './leadRegister'
+import { appendActivity, migrateLeadRecord, type LeadActivity, type LeadOffice, type LeadRecord } from './leadRegister'
 
 const STORAGE_KEY = 'asg-call-log'
 const HEADERS = ['Date', 'Lead Name', 'Address', 'Contact Number', 'Notes', 'Update Lead', 'Renter/Owner', 'Superannuation', 'Rep Name', 'Lead Status', 'Call Timestamp', 'Call Result', 'LeadID', 'Office', 'Qualification', 'Follow-up Date', 'Timely CRM', 'Timely CRM At', 'Timely CRM By']
@@ -54,7 +54,7 @@ export function createLeadRegisterRepository(storage: Storage = localStorage) {
       write(storage, next)
       return next
     },
-    async importLeadCsv(text: string): Promise<ImportResult> {
+    async importLeadCsv(text: string, office?: LeadOffice): Promise<ImportResult> {
       const rows = csvToArray(text)
       const headers = rows.shift()?.map((header) => header.trim()) || []
       const records: LeadRecord[] = []
@@ -71,8 +71,8 @@ export function createLeadRegisterRepository(storage: Storage = localStorage) {
         records.push(migrateLeadRecord({
           id: id(), date: get('Date'), leadName: get('Lead Name'), address: get('Address'), phone: get('Contact Number'), notes: get('Notes'),
           updateLead: get('Update Lead').toLowerCase() === 'true', renterOwner: get('Renter/Owner'), superannuation: get('Superannuation'), repName: get('Rep Name'),
-          leadStatus: get('Lead Status'), callTimestamp: get('Call Timestamp'), callResult: get('Call Result'), leadId: get('LeadID'), office: (get('Office') || undefined) as LeadRecord['office'],
-          qualification: (get('Qualification') || undefined) as LeadRecord['qualification'], followUpDate: get('Follow-up Date') || undefined,
+          leadStatus: get('Lead Status'), callTimestamp: get('Call Timestamp'), callResult: get('Call Result'), leadId: get('LeadID'),
+          qualification: (get('Qualification') || undefined) as LeadRecord['qualification'], office: office || (get('Office') || undefined) as LeadOffice | undefined, followUpDate: get('Follow-up Date') || undefined,
           timelySynced: get('Timely CRM').toLowerCase() === 'true', timelySyncedAt: get('Timely CRM At') || undefined, timelySyncedBy: get('Timely CRM By') || undefined,
         }))
       }

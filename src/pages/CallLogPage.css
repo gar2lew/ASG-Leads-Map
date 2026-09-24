@@ -11,4 +11,7 @@
 .call-centre-command__actions { display: flex; gap: .55rem; }
 .call-centre-command__actions input[type='file'] { display: none; }
 .call-centre-import-status { margin: -.35rem 0 0; color: var(--asg-color-success-500); font-size: .82rem; font-weight: 700; }
+.call-centre-sheet-links { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; color: var(--color-text-secondary); font-size: .76rem; }
+.call-centre-sheet-link { display: inline-flex; align-items: center; gap: .45rem; }
+.call-centre-sheet-link a { color: var(--asg-color-gold-600); font-weight: 700; }
 @media (max-width: 700px) { .call-centre-command { align-items: stretch; flex-direction: column; } .call-centre-command__actions { width: 100%; } .call-centre-command__actions > * { flex: 1; } }
