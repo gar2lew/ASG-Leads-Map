@@ -10,7 +10,7 @@ export interface LeadActivity {
   repName: string
   outcome: string
   notes: string
-  followUpDate?: string
+  followUpDate?: string | undefined
 }
 
 export interface LeadRecord {
@@ -28,13 +28,13 @@ export interface LeadRecord {
   callTimestamp: string
   callResult: string
   leadId: string
-  office?: LeadOffice
+  office?: LeadOffice | undefined
   qualification: LeadQualification
-  followUpDate?: string
-  lastActivityAt?: string
+  followUpDate?: string | undefined
+  lastActivityAt?: string | undefined
   timelySynced: boolean
-  timelySyncedAt?: string
-  timelySyncedBy?: string
+  timelySyncedAt?: string | undefined
+  timelySyncedBy?: string | undefined
   activities: LeadActivity[]
 }
 
@@ -89,12 +89,12 @@ export function appendActivity(record: LeadRecord, activity: LeadActivity): Lead
   }
 }
 
-interface LeadFilters {
+export interface LeadFilters {
   query?: string
   status?: string
   rep?: string
-  office?: string
-  timely?: 'all' | 'sent' | 'pending'
+  office?: LeadOffice | 'all' | undefined
+  timely?: 'all' | 'sent' | 'pending' | undefined
   callbackDue?: boolean
 }
 

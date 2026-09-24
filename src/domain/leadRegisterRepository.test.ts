@@ -11,8 +11,8 @@ describe('local lead register repository', () => {
     const rows = await repository.loadLeadRecords()
 
     expect(rows).toHaveLength(1)
-    expect(rows[0].leadName).toBe('Ava')
-    expect(rows[0].timelySynced).toBe(false)
+    expect(rows[0]?.leadName).toBe('Ava')
+    expect(rows[0]?.timelySynced).toBe(false)
   })
 
   it('round-trips quoted CSV fields and ignores incomplete identity rows', async () => {
@@ -20,7 +20,7 @@ describe('local lead register repository', () => {
     const imported = await repository.importLeadCsv('Date,Lead Name,Address,Notes\n2026-09-24,Ava,1 Main St,"Spoke, qualified"\n2026-09-24,,,Missing identity')
 
     expect(imported.records).toHaveLength(1)
-    expect(imported.records[0].notes).toBe('Spoke, qualified')
+    expect(imported.records[0]?.notes).toBe('Spoke, qualified')
     expect(imported.skipped).toBe(1)
 
     const csv = repository.exportLeadCsv(imported.records)
@@ -35,8 +35,8 @@ describe('local lead register repository', () => {
     expect(sent[0]).toMatchObject({ timelySynced: true, timelySyncedAt: '2026-09-24T10:00', timelySyncedBy: 'Jordan' })
 
     const cleared = await repository.setTimelyHandoff('lead-1', false, 'Jordan', '2026-09-24T11:00')
-    expect(cleared[0].timelySynced).toBe(false)
-    expect(cleared[0].timelySyncedAt).toBeUndefined()
-    expect(cleared[0].timelySyncedBy).toBeUndefined()
+    expect(cleared[0]?.timelySynced).toBe(false)
+    expect(cleared[0]?.timelySyncedAt).toBeUndefined()
+    expect(cleared[0]?.timelySyncedBy).toBeUndefined()
   })
 })
