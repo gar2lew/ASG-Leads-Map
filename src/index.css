@@ -1,6 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
+  --asg-theme-light-canvas: #f4f1ea;
+  --asg-theme-light-surface: #fffdf8;
+  --asg-theme-light-border: #d6c8ad;
+  --asg-theme-light-text: #172235;
+  --asg-theme-light-muted: #64748b;
+  --asg-theme-dark-canvas: #07111d;
+  --asg-theme-dark-surface: #0d1b2a;
+  --asg-theme-dark-border: #38516f;
+  --asg-theme-dark-text: #ffffff;
+  --asg-theme-dark-muted: #b9c7d8;
   /* ===========================================
      ASG BRAND KIT - DESIGN TOKENS v3
      =========================================== */
