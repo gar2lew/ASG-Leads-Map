@@ -6,6 +6,11 @@ import { MemoryRouter } from 'react-router-dom'
 const mocks = vi.hoisted(() => ({
   getAllPins: vi.fn(async () => []),
   ingestLead: vi.fn(),
+  getSheetSyncStatus: vi.fn(),
+  previewSheetBaseline: vi.fn(),
+  confirmSheetBaseline: vi.fn(),
+  syncSheetNow: vi.fn(),
+  resolveSheetConflict: vi.fn(),
   parseLeadWorkbook: vi.fn(() => ({
     records: [{
       sourceRow: 2,
@@ -36,6 +41,14 @@ vi.mock('../domain', () => ({
   findImportedDuplicates: () => new Set(),
 }))
 
+vi.mock('../integrations/sheetSync', () => ({
+  getSheetSyncStatus: mocks.getSheetSyncStatus,
+  previewSheetBaseline: mocks.previewSheetBaseline,
+  confirmSheetBaseline: mocks.confirmSheetBaseline,
+  syncSheetNow: mocks.syncSheetNow,
+  resolveSheetConflict: mocks.resolveSheetConflict,
+}))
+
 import { LeadImportPage } from './LeadImportPage'
 
 describe('LeadImportPage', () => {
@@ -46,6 +59,102 @@ describe('LeadImportPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.ingestLead.mockResolvedValue({ status: 'created' })
+    mocks.getSheetSyncStatus.mockResolvedValue({ office: 'perth', source: 'Perth live leads', url: 'https://example.test', baselineConfirmed: false, conflicts: [] })
+    mocks.previewSheetBaseline.mockResolvedValue({ previewId: 'preview-1', office: 'perth', source: 'Perth live leads', counts: { inserted: 42, updated: 0, unchanged: 0, invalid: 0, duplicates: 1, conflicts: 0 }, conflicts: [], invalidRows: [], duplicates: [] })
+    mocks.confirmSheetBaseline.mockResolvedValue({ summary: { office: 'perth', source: 'Perth live leads', syncedAt: '2026-09-30T10:00:00.000Z', inserted: 42, updated: 0, unchanged: 0, invalid: 0, duplicates: 1, conflicts: 0 }, conflicts: [] })
+    mocks.syncSheetNow.mockResolvedValue({ summary: { office: 'perth', source: 'Perth live leads', syncedAt: '2026-09-30T10:00:00.000Z', inserted: 1, updated: 0, unchanged: 0, invalid: 0, duplicates: 0, conflicts: 0 }, conflicts: [] })
+    mocks.resolveSheetConflict.mockResolvedValue({ resolved: true, recordId: 'lead-1', field: 'contactPhone', resolution: 'sheets' })
+  })
+
+  it('previews the live Sheets baseline before requiring explicit confirmation', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><LeadImportPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /preview initial baseline/i }))
+
+    expect(await screen.findByText(/review baseline before importing/i)).toBeInTheDocument()
+    expect(screen.getByText(/nothing has been added yet/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /confirm and import 42 leads/i })).toBeEnabled()
+    expect(mocks.confirmSheetBaseline).not.toHaveBeenCalled()
+  })
+
+  it('confirms the reviewed baseline explicitly and refreshes status', async () => {
+    mocks.getSheetSyncStatus
+      .mockResolvedValueOnce({ office: 'perth', source: 'Perth live leads', url: 'https://example.test', baselineConfirmed: false, conflicts: [] })
+      .mockResolvedValueOnce({ office: 'perth', source: 'Perth live leads', url: 'https://example.test', baselineConfirmed: true, conflicts: [] })
+    const user = userEvent.setup()
+    render(<MemoryRouter><LeadImportPage /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: /preview initial baseline/i }))
+    await user.click(await screen.findByRole('button', { name: /confirm and import 42 leads/i }))
+
+    expect(mocks.confirmSheetBaseline).toHaveBeenCalledWith('perth', 'preview-1')
+    expect(await screen.findByText(/firestore baseline active/i)).toBeInTheDocument()
+  })
+
+  it('refreshes the confirmed live register on demand', async () => {
+    mocks.getSheetSyncStatus.mockResolvedValue({ office: 'perth', source: 'Perth live leads', url: 'https://example.test', baselineConfirmed: true, conflicts: [] })
+    const user = userEvent.setup()
+    render(<MemoryRouter><LeadImportPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /sync live register now/i }))
+
+    expect(mocks.syncSheetNow).toHaveBeenCalledWith('perth')
+  })
+
+  it('keeps the reviewed baseline preview available when confirmation needs retrying', async () => {
+    mocks.confirmSheetBaseline.mockRejectedValueOnce(new Error('The register changed since preview.'))
+    const user = userEvent.setup()
+    render(<MemoryRouter><LeadImportPage /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: /preview initial baseline/i }))
+    await user.click(await screen.findByRole('button', { name: /confirm and import 42 leads/i }))
+
+    expect(await screen.findByText('The register changed since preview.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /confirm and import 42 leads/i })).toBeEnabled()
+  })
+
+  it('keeps baseline conflict choices read-only until confirmation persists them', async () => {
+    mocks.previewSheetBaseline.mockResolvedValueOnce({
+      previewId: 'preview-1', office: 'perth', source: 'Perth live leads', counts: { inserted: 0, updated: 0, unchanged: 1, invalid: 0, duplicates: 0, conflicts: 1 },
+      conflicts: [{ recordId: 'lead-1', leadId: 'CRM-1', field: 'phone', operationalValue: '0400 111 111', sourceValue: '0400 222 222', sourceTab: 'LEADS', sourceRow: 8 }], invalidRows: [], duplicates: [],
+    })
+    const user = userEvent.setup()
+    render(<MemoryRouter><LeadImportPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /preview initial baseline/i }))
+
+    expect(await screen.findByText(/resolution actions become available after the baseline is saved/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /keep firestore/i })).not.toBeInTheDocument()
+  })
+
+  it('shows row-level source diagnostics when a manual sync fails', async () => {
+    mocks.getSheetSyncStatus.mockResolvedValue({ office: 'perth', source: 'Perth live leads', url: 'https://example.test', baselineConfirmed: true, conflicts: [] })
+    mocks.syncSheetNow.mockRejectedValueOnce(Object.assign(new Error('Some source rows need correction.'), {
+      invalidRows: [{ tabName: 'BOOKED', sourceRow: 9, reason: 'Address is required' }],
+      invalidTabs: [{ tabName: 'NO ANSWER', reason: 'Expected headers are missing' }],
+    }))
+    const user = userEvent.setup()
+    render(<MemoryRouter><LeadImportPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /sync live register now/i }))
+
+    expect(await screen.findByText(/BOOKED row 9: Address is required/i)).toBeInTheDocument()
+    expect(screen.getByText(/NO ANSWER: Expected headers are missing/i)).toBeInTheDocument()
+  })
+
+  it('offers explicit resolution choices for source conflicts', async () => {
+    const conflictStatus = {
+      office: 'perth' as const, source: 'Perth live leads', url: 'https://example.test', baselineConfirmed: true, conflicts: [
+        { recordId: 'lead-1', leadId: 'CRM-1', field: 'contactPhone', operationalValue: '0400 111 111', sourceValue: '0400 222 222', sourceTab: 'LEADS', sourceRow: 8 },
+      ],
+    }
+    mocks.getSheetSyncStatus.mockResolvedValueOnce(conflictStatus).mockResolvedValueOnce({ ...conflictStatus, conflicts: [] })
+    const user = userEvent.setup()
+    render(<MemoryRouter><LeadImportPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /use sheets/i }))
+
+    expect(mocks.resolveSheetConflict).toHaveBeenCalledWith({ office: 'perth', recordId: 'lead-1', field: 'contactPhone', resolution: 'sheets' })
+    await waitFor(() => expect(screen.queryByText('0400 111 111')).not.toBeInTheDocument())
   })
 
   it('ingests Jotform records with their LeadID as the external ID', async () => {

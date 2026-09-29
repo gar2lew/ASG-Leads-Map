@@ -1,9 +1,12 @@
-import { useState, type ChangeEvent } from 'react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useCurrentUser } from '../auth'
 import { canManageUsers } from '../domain/roles'
 import { getAllPins, ingestLead, parseLeadWorkbook, findImportedDuplicates, type LeadImportPreview } from '../domain'
 import type { OfficeId } from '../domain/roles'
+import { confirmSheetBaseline, getSheetSyncStatus, previewSheetBaseline, resolveSheetConflict, syncSheetNow, type SheetSyncError, type SheetSyncIssue, type SheetSyncPreview, type SheetSyncStatus } from '../integrations/sheetSync'
+import type { LeadSourceField } from '../domain/leadRegister'
+import { googleSheetSources } from '../domain/googleSheetSources'
 import './LeadImportPage.css'
 
 interface ImportDiagnostic {
@@ -24,6 +27,23 @@ export function LeadImportPage() {
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0, created: 0, skipped: 0 })
   const [importComplete, setImportComplete] = useState(false)
   const [importDiagnostics, setImportDiagnostics] = useState<ImportDiagnostic[]>([])
+  const [syncStatus, setSyncStatus] = useState<SheetSyncStatus | null>(null)
+  const [syncPreview, setSyncPreview] = useState<SheetSyncPreview | null>(null)
+  const [syncConflicts, setSyncConflicts] = useState<SheetSyncStatus['conflicts']>([])
+  const [syncError, setSyncError] = useState<SheetSyncError | Error | null>(null)
+  const [syncAction, setSyncAction] = useState<'preview' | 'confirm' | 'sync' | 'resolve' | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void getSheetSyncStatus(officeId).then((status) => {
+      if (!active) return
+      setSyncStatus(status)
+      setSyncConflicts(status.conflicts)
+    }).catch((cause: unknown) => {
+      if (active) setSyncError(cause instanceof Error ? cause : new Error('Unable to load live register status.'))
+    })
+    return () => { active = false }
+  }, [officeId])
 
   if (!canManageUsers(user.role)) return <Navigate to="/map" replace />
 
@@ -122,27 +142,200 @@ export function LeadImportPage() {
 
   function handleOfficeChange(value: OfficeId) {
     setOfficeId(value)
+    setSyncStatus(null)
+    setSyncConflicts([])
     setPreview(null)
     setFileName('')
     setImportDiagnostics([])
+    setSyncPreview(null)
+    setSyncError(null)
   }
+
+  async function handlePreviewBaseline() {
+    setSyncAction('preview')
+    setSyncError(null)
+    setSyncPreview(null)
+    try {
+      const result = await previewSheetBaseline(officeId)
+      setSyncPreview(result)
+    } catch (cause) {
+      setSyncError(cause instanceof Error ? cause : new Error('Unable to preview the live register.'))
+    } finally {
+      setSyncAction(null)
+    }
+  }
+
+  async function handleConfirmBaseline() {
+    if (!syncPreview || syncPreview.invalidRows.length || syncAction) return
+    setSyncAction('confirm')
+    setSyncError(null)
+    try {
+      const result = await confirmSheetBaseline(officeId, syncPreview.previewId)
+      setSyncPreview(null)
+      setSyncConflicts(result.conflicts)
+      const status = await getSheetSyncStatus(officeId)
+      setSyncStatus(status)
+      setSyncConflicts(status.conflicts)
+    } catch (cause) {
+      setSyncError(cause instanceof Error ? cause : new Error('Unable to confirm the baseline.'))
+    } finally {
+      setSyncAction(null)
+    }
+  }
+
+  async function handleSyncNow() {
+    if (syncAction) return
+    setSyncAction('sync')
+    setSyncError(null)
+    try {
+      const result = await syncSheetNow(officeId)
+      setSyncConflicts(result.conflicts)
+      const status = await getSheetSyncStatus(officeId)
+      setSyncStatus(status)
+      setSyncConflicts(status.conflicts)
+    } catch (cause) {
+      setSyncError(cause instanceof Error ? cause : new Error('Unable to sync the live register.'))
+      void getSheetSyncStatus(officeId).then((status) => {
+        setSyncStatus(status)
+        setSyncConflicts(status.conflicts)
+      }).catch(() => undefined)
+    } finally {
+      setSyncAction(null)
+    }
+  }
+
+  async function handleResolveConflict(recordId: string, field: LeadSourceField, resolution: 'firestore' | 'sheets') {
+    if (syncAction) return
+    setSyncAction('resolve')
+    setSyncError(null)
+    try {
+      await resolveSheetConflict({ office: officeId, recordId, field, resolution })
+      const status = await getSheetSyncStatus(officeId)
+      setSyncStatus(status)
+      setSyncConflicts(status.conflicts)
+    } catch (cause) {
+      setSyncError(cause instanceof Error ? cause : new Error('Unable to resolve the source conflict.'))
+    } finally {
+      setSyncAction(null)
+    }
+  }
+
+  const availableOffices: OfficeId[] = user.role === 'super_admin' ? ['perth', 'brisbane'] : user.officeId ? [user.officeId] : ['perth']
+  const source = googleSheetSources.find((item) => item.office === officeId)
 
   return (
     <section className="lead-import page-card">
       <header className="lead-import__header">
         <div>
           <p className="eyebrow">Administrator tools</p>
-          <h1>Import master leads</h1>
-          <p>Review the live lead workbook before adding contacted properties to the map.</p>
+          <h1>Lead import & register sync</h1>
+          <p>Review the live office register before it becomes shared Firestore lead data.</p>
         </div>
       </header>
+
+      <section className="lead-import__sheets" aria-labelledby="lead-import-sheets-title">
+        <div className="lead-import__sheets-heading">
+          <div>
+            <p className="eyebrow">Live Google Sheets</p>
+            <h2 id="lead-import-sheets-title">{source?.label ?? 'Office lead register'}</h2>
+            <p>One-time baseline review, followed by safe nightly refreshes.</p>
+          </div>
+          {source && <a className="btn btn--secondary" href={source.url} target="_blank" rel="noreferrer">Open source sheet ↗</a>}
+        </div>
+
+        {syncStatus ? (
+          <div className="lead-import__sync-status" role="status">
+            <span className={`lead-import__sync-dot${syncStatus.lastSyncStatus === 'failed' ? ' is-error' : syncStatus.baselineConfirmed ? ' is-ready' : ''}`} />
+            <span>{syncStatus.baselineConfirmed ? 'Firestore baseline active' : 'Initial baseline not yet confirmed'}</span>
+            {syncStatus.lastSyncAt && <span>Last sync {new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(syncStatus.lastSyncAt))}</span>}
+            {syncStatus.lastSyncStatus === 'failed' && <strong>Needs review</strong>}
+          </div>
+        ) : <p className="lead-import__sync-status" role="status">Loading office sync status…</p>}
+
+        {syncStatus?.lastSyncError && <p className="form-error" role="alert">{syncStatus.lastSyncError}</p>}
+        {syncError && <p className="form-error" role="alert">{syncError.message}</p>}
+        {syncError && 'invalidRows' in syncError && Array.isArray(syncError.invalidRows) && syncError.invalidRows.length > 0 && (
+          <IssueList title="Correct these source rows, then retry sync" items={syncError.invalidRows.map((item) => {
+            const issue = item as SheetSyncIssue
+            return `${issue.tabName} row ${issue.sourceRow}: ${issue.reason}`
+          })} />
+        )}
+        {syncError && 'invalidTabs' in syncError && Array.isArray(syncError.invalidTabs) && syncError.invalidTabs.length > 0 && (
+          <IssueList title="Source tabs needing attention" items={syncError.invalidTabs.map((item) => {
+            const issue = item as { tabName: string; reason: string }
+            return `${issue.tabName}: ${issue.reason}`
+          })} />
+        )}
+        {syncError && 'duplicates' in syncError && Array.isArray(syncError.duplicates) && syncError.duplicates.length > 0 && (
+          <IssueList title="Duplicate source rows skipped" items={syncError.duplicates.map((item) => {
+            const duplicate = item as { tabName: string; sourceRow: number }
+            return `${duplicate.tabName} row ${duplicate.sourceRow}`
+          })} />
+        )}
+
+        <div className="lead-import__sync-actions">
+          {syncStatus?.baselineConfirmed ? (
+            <button className="btn btn--primary" type="button" onClick={() => void handleSyncNow()} disabled={syncAction !== null}>
+              {syncAction === 'sync' ? 'Syncing register…' : 'Sync live register now'}
+            </button>
+          ) : (
+            <button className="btn btn--primary" type="button" onClick={() => void handlePreviewBaseline()} disabled={syncAction !== null || !syncStatus}>
+              {syncAction === 'preview' ? 'Reading source tabs…' : 'Preview initial baseline'}
+            </button>
+          )}
+          {syncStatus?.lastSyncCounts && <span>{syncStatus.lastSyncCounts.inserted} new · {syncStatus.lastSyncCounts.updated} refreshed · {syncStatus.lastSyncCounts.conflicts} conflicts</span>}
+        </div>
+
+        {syncPreview && (
+          <div className="lead-import__sync-preview" aria-live="polite">
+            <h3>Review baseline before importing</h3>
+            <div className="lead-import__stats">
+              <div><strong>{syncPreview.counts.inserted}</strong><span>new leads</span></div>
+              <div><strong>{syncPreview.counts.updated}</strong><span>matched / refreshed</span></div>
+              <div><strong>{syncPreview.counts.duplicates}</strong><span>duplicate rows skipped</span></div>
+              <div><strong>{syncPreview.counts.invalid}</strong><span>rows needing correction</span></div>
+            </div>
+            <p className="lead-import__notice">Nothing has been added yet. Confirming writes valid lead records to Firestore; later syncs will preserve app activity and never delete records missing from a sheet.</p>
+            {syncPreview.invalidRows.length > 0 && <IssueList title="Resolve these source rows before confirming" items={syncPreview.invalidRows.map((item) => `${item.tabName} row ${item.sourceRow}: ${item.reason}`)} />}
+            {syncPreview.duplicates.length > 0 && <IssueList title="Duplicate rows skipped" items={syncPreview.duplicates.map((item) => `${item.tabName} row ${item.sourceRow}`)} />}
+            {syncPreview.conflicts.length > 0 && (
+              <>
+                <p className="lead-import__notice">Some existing Firestore values differ from the sheet. Baseline confirmation records these for review; resolution actions become available after the baseline is saved.</p>
+                <IssueList title="Conflicts to review after confirmation" items={syncPreview.conflicts.map((conflict) => `${conflict.leadId || conflict.recordId} · ${conflict.field}: Firestore “${String(conflict.operationalValue)}” / Sheets “${String(conflict.sourceValue)}”`)} />
+              </>
+            )}
+            <button className="btn btn--primary" type="button" onClick={() => void handleConfirmBaseline()} disabled={syncAction !== null || syncPreview.invalidRows.length > 0}>
+              {syncAction === 'confirm' ? 'Confirming baseline…' : `Confirm and import ${syncPreview.counts.inserted} leads`}
+            </button>
+          </div>
+        )}
+
+        {syncConflicts.length > 0 && (
+          <section className="lead-import__conflicts" aria-labelledby="lead-import-conflicts-title">
+            <h3 id="lead-import-conflicts-title">Source changes need a decision ({syncConflicts.length})</h3>
+            <p>Firestore was left unchanged for these fields. Choose which value becomes the shared lead value.</p>
+            {syncConflicts.map((conflict) => (
+              <article className="lead-import__conflict" key={`${conflict.recordId}-${conflict.field}`}>
+                <div><strong>{conflict.leadId || conflict.recordId}</strong><span>{conflict.field.replace(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`)}</span></div>
+                <dl>
+                  <div><dt>Firestore</dt><dd>{String(conflict.operationalValue)}</dd></div>
+                  <div><dt>Google Sheets</dt><dd>{String(conflict.sourceValue)}</dd></div>
+                </dl>
+                <div className="lead-import__conflict-actions">
+                  <button type="button" className="btn btn--secondary" disabled={syncAction !== null} onClick={() => void handleResolveConflict(conflict.recordId, conflict.field as LeadSourceField, 'firestore')}>Keep Firestore</button>
+                  <button type="button" className="btn btn--primary" disabled={syncAction !== null} onClick={() => void handleResolveConflict(conflict.recordId, conflict.field as LeadSourceField, 'sheets')}>Use Sheets</button>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
+      </section>
 
       <div className="lead-import__controls">
         <label>
           Office
           <select value={officeId} onChange={(event) => handleOfficeChange(event.target.value as OfficeId)}>
-            <option value="perth">Perth</option>
-            <option value="brisbane">Brisbane</option>
+            {availableOffices.map((office) => <option key={office} value={office}>{office === 'perth' ? 'Perth' : 'Brisbane'}</option>)}
           </select>
         </label>
         <label className="lead-import__file">
@@ -187,5 +380,14 @@ export function LeadImportPage() {
         </div>
       )}
     </section>
+  )
+}
+
+function IssueList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="lead-import__diagnostics">
+      <h4>{title}</h4>
+      <ul>{items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>
+    </div>
   )
 }

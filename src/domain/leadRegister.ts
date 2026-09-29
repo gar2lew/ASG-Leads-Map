@@ -27,6 +27,11 @@ export interface LeadSourceConflict {
   detectedAt: string
 }
 
+export interface LeadSourceResolution {
+  resolution: 'firestore'
+  sourceValue: string | boolean
+}
+
 export interface LeadSourceMetadata {
   spreadsheetId: string
   tabName: string
@@ -35,6 +40,7 @@ export interface LeadSourceMetadata {
   lastSeenAt: string
   snapshot: LeadSourceSnapshot
   conflicts: Partial<Record<LeadSourceField, LeadSourceConflict>>
+  resolutions?: Partial<Record<LeadSourceField, LeadSourceResolution>> | undefined
 }
 
 export interface LeadRecord {
@@ -81,6 +87,13 @@ function nowDateTime() {
 export function migrateLeadRecord(input: LegacyLeadInput): LeadRecord {
   const leadStatus = input.leadStatus || 'New'
   const qualification = input.qualification || (leadStatus === 'Qualified' ? 'qualified' : leadStatus === 'Not Interested' ? 'not_interested' : 'new')
+  const source = input.source ? {
+    ...input.source,
+    snapshot: { ...input.source.snapshot },
+    conflicts: { ...input.source.conflicts },
+    ...(input.source.resolutions && Object.keys(input.source.resolutions).length > 0 ? { resolutions: { ...input.source.resolutions } } : {}),
+  } : undefined
+  if (source?.resolutions && Object.keys(source.resolutions).length === 0) delete source.resolutions
   return {
     id: input.id,
     date: input.date || nowDate(),
@@ -109,11 +122,7 @@ export function migrateLeadRecord(input: LegacyLeadInput): LeadRecord {
     timelySyncedAt: input.timelySyncedAt,
     timelySyncedBy: input.timelySyncedBy,
     activities: [...(input.activities || [])],
-    source: input.source ? {
-      ...input.source,
-      snapshot: { ...input.source.snapshot },
-      conflicts: { ...input.source.conflicts },
-    } : undefined,
+    source,
   }
 }
 
@@ -143,11 +152,25 @@ export function mergeLeadSource(record: LeadRecord, incoming: LeadSourceMetadata
   const previous = record.source?.snapshot
   const next: LeadRecord = { ...record }
   const conflicts = { ...record.source?.conflicts }
+  const resolutions = { ...record.source?.resolutions }
   for (const field of SOURCE_FIELDS) {
     const sourceValue = incoming.snapshot[field]
     if (sourceValue === undefined || sourceValue === '') continue
     const operationalValue = record[field]
     const previousValue = previous?.[field]
+    const resolution = resolutions[field]
+    if (resolution) {
+      if (operationalValue === sourceValue) {
+        delete resolutions[field]
+        delete conflicts[field]
+        continue
+      }
+      if (resolution.sourceValue === sourceValue) {
+        delete conflicts[field]
+        continue
+      }
+      delete resolutions[field]
+    }
     if (operationalValue === sourceValue || operationalValue === previousValue || (previousValue === undefined && operationalValue === '')) {
       // The field was not edited in the app, or was empty, so the sheet can refresh it.
       Object.assign(next, { [field]: sourceValue })
@@ -161,11 +184,14 @@ export function mergeLeadSource(record: LeadRecord, incoming: LeadSourceMetadata
       }
     }
   }
-  next.source = {
+  const nextSource: LeadSourceMetadata = {
     ...incoming,
     snapshot: { ...previous, ...incoming.snapshot },
     conflicts,
   }
+  if (Object.keys(resolutions).length > 0) nextSource.resolutions = resolutions
+  else delete nextSource.resolutions
+  next.source = nextSource
   return next
 }
 

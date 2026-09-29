@@ -121,25 +121,27 @@
 - [x] Implement shared reconciliation and server-side Admin writes; preserve operational fields and activity/Timely/audit state, block ambiguous identities and invalid source rows, and never delete absent rows.
 - [x] Configure `0 15 * * *` in `vercel.json` targeting `/api/leads` (11:00 p.m. Perth time); protect the handler with `CRON_SECRET` and document required server variables. Production still requires setting `CRON_SECRET` and a confirmed baseline before nightly writes can occur.
 - [x] Run tests and production build; expect PASS.
-- [ ] Commit as `feat: reconcile nightly Sheets leads into Firestore`.
+- [x] Commit as `feat: reconcile nightly Sheets leads into Firestore` (`3715cd6`).
 
 ### Task 6: Add import baseline, manual sync, and conflict review UI
 
 **Files:**
 - Modify: `src/pages/LeadImportPage.tsx`
 - Test: `src/pages/LeadImportPage.test.tsx`
-- Modify: `src/integrations/leads.ts` (client API adapter)
-- Test: `src/integrations/leads.test.ts`
+- Create: `src/integrations/sheetSync.ts` (authenticated client API adapter)
+- Test: `src/integrations/sheetSync.test.ts`
+- Modify: `api/leads/index.ts` (status and conflict-resolution actions)
+- Test: `api/leads/index.test.ts`
 
 **Interfaces:**
 - Add `previewBaseline(office)`, `confirmBaseline(previewId)`, and `syncNow(office)` client methods returning typed summaries.
 - Display last sync time/status, source office/workbook, new/matched/skipped counts, and per-field conflicts with explicit keep-Firestore/use-Sheets resolution.
 
-- [ ] Add UI tests for preview before write, explicit confirmation, manual refresh, conflict resolution, and retry with draft retained.
-- [ ] Run the page tests; confirm new cases fail before implementation.
-- [ ] Implement the dedicated import workflow; retain current workbook/CSV import and permissions.
-- [ ] Run import page and integration tests; expect PASS.
-- [ ] Commit as `feat: add Sheets baseline and sync review UI`.
+- [x] Add UI tests for preview before write, explicit confirmation, manual refresh, conflict resolution, retry with draft retained, preview-only conflict review, and row/tab diagnostics after failed sync.
+- [x] Run the page tests; confirm new cases fail before implementation.
+- [x] Implement the dedicated import workflow; retain current workbook/CSV import and permissions.
+- [x] Run import page, API, domain, and integration tests; expect PASS.
+- [x] Commit as `feat: add Sheets baseline and sync review UI`.
 
 ### Task 7: Cut map and contact management over to shared leads
 

@@ -1,11 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createHash, createSign, randomUUID } from 'node:crypto'
 import { googleSheetSources } from '../../src/domain/googleSheetSources.js'
-import { leadSourceIdentityKey, mergeLeadSource, migrateLeadRecord, type LeadOffice, type LeadRecord } from '../../src/domain/leadRegister.js'
+import { leadSourceIdentityKey, mergeLeadSource, migrateLeadRecord, type LeadOffice, type LeadRecord, type LeadSourceField, type LeadSourceMetadata } from '../../src/domain/leadRegister.js'
 import { parseSheetTabRows, reconcileSheetRows, type ReconciliationPreview, type SheetLeadRow } from '../../src/domain/sheetsReconciliation.js'
 import { isAuthorizedLeadCron, isAuthorizedLeadOffice, isAuthorizedLeadSync } from './access.js'
 
 const SHEET_SOURCE = Object.fromEntries(googleSheetSources.map((source) => [source.office, source])) as Record<LeadOffice, typeof googleSheetSources[number]>
+const SOURCE_FIELDS: LeadSourceField[] = ['date', 'leadName', 'address', 'phone', 'notes', 'updateLead', 'renterOwner', 'superannuation', 'repName', 'leadStatus', 'callTimestamp', 'callResult']
 
 function encodeBase64Url(value: string) { return Buffer.from(value).toString('base64url') }
 
@@ -187,6 +188,64 @@ async function recordSyncFailure(db: Awaited<ReturnType<typeof import('../_lib/a
   }, { merge: true })
 }
 
+async function resolveConflict(
+  db: Awaited<ReturnType<typeof import('../_lib/admin.js')['getAdminDb']>>,
+  office: LeadOffice,
+  uid: string,
+  body: { recordId?: unknown; field?: unknown; resolution?: unknown },
+  res: VercelResponse,
+) {
+  if (typeof body.recordId !== 'string' || !body.recordId || body.recordId.includes('/') || body.recordId.length > 150) {
+    return res.status(400).json({ error: 'A valid lead record ID is required.' })
+  }
+  if (typeof body.field !== 'string' || !SOURCE_FIELDS.includes(body.field as LeadSourceField)) {
+    return res.status(400).json({ error: 'A valid source field is required.' })
+  }
+  if (body.resolution !== 'firestore' && body.resolution !== 'sheets') {
+    return res.status(400).json({ error: 'Choose either Firestore or Sheets as the value to keep.' })
+  }
+  const field = body.field as LeadSourceField
+  const resolution = body.resolution
+  const recordRef = db.collection('leads').doc(body.recordId)
+  const auditRef = db.collection('leadSyncAudit').doc(randomUUID())
+  const resolvedAt = new Date().toISOString()
+  let result: { resolved: true; recordId: string; field: LeadSourceField; resolution: 'firestore' | 'sheets' } | undefined
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(recordRef)
+    if (!snapshot.exists) throw Object.assign(new Error('Lead record was not found.'), { status: 404 })
+    const current = toLeadRecord(snapshot.id, snapshot.data() as Record<string, unknown>)
+    if (current.office !== office) throw Object.assign(new Error('This lead belongs to a different office.'), { status: 403 })
+    const conflict = current.source?.conflicts[field]
+    if (!current.source || !conflict) throw Object.assign(new Error('This source conflict has already been resolved. Refresh the register.'), { status: 409 })
+    const chosenValue = resolution === 'sheets' ? conflict.sourceValue : current[field]
+    if (typeof chosenValue !== 'string' && typeof chosenValue !== 'boolean') throw Object.assign(new Error('The selected source value is invalid.'), { status: 409 })
+    const nextSource: LeadSourceMetadata = {
+      ...current.source,
+      snapshot: { ...current.source.snapshot, [field]: conflict.sourceValue },
+      conflicts: { ...current.source.conflicts },
+      resolutions: { ...current.source.resolutions },
+    }
+    delete nextSource.conflicts[field]
+    if (resolution === 'firestore') {
+      nextSource.resolutions = {
+        ...nextSource.resolutions,
+        [field]: { resolution: 'firestore', sourceValue: conflict.sourceValue },
+      }
+    } else {
+      const resolutions = { ...nextSource.resolutions }
+      delete resolutions[field]
+      if (Object.keys(resolutions).length === 0) delete nextSource.resolutions
+      else nextSource.resolutions = resolutions
+    }
+    const next: LeadRecord = { ...current, [field]: chosenValue, source: nextSource }
+    const { id: _id, office: _office, ...fields } = next
+    transaction.set(recordRef, withoutUndefined({ ...fields, officeId: office, updatedAt: resolvedAt }))
+    transaction.set(auditRef, { officeId: office, recordId: current.id, leadId: current.leadId, field, resolution, actorUid: uid, resolvedAt })
+    result = { resolved: true, recordId: current.id, field, resolution }
+  })
+  return res.status(200).json(result)
+}
+
 async function importOfficeSheet(req: VercelRequest, res: VercelResponse, office: LeadOffice) {
   try {
     const auth = await authenticateOffice(req, office)
@@ -223,7 +282,7 @@ async function importOfficeSheet(req: VercelRequest, res: VercelResponse, office
 }
 
 async function manualSync(req: VercelRequest, res: VercelResponse) {
-  const body = req.body as { action?: unknown; office?: unknown; previewId?: unknown } | undefined
+  const body = req.body as { action?: unknown; office?: unknown; previewId?: unknown; recordId?: unknown; field?: unknown; resolution?: unknown } | undefined
   if (!body || !isOffice(body.office)) return res.status(400).json({ error: 'A valid office is required.' })
   const office = body.office
   let syncDb: Awaited<ReturnType<typeof import('../_lib/admin.js')['getAdminDb']>> | undefined
@@ -233,7 +292,26 @@ async function manualSync(req: VercelRequest, res: VercelResponse) {
     if (!isAuthorizedLeadSync(auth.profile, office)) return res.status(403).json({ error: 'Manager or super-admin access is required to synchronize registers.' })
     syncDb = auth.db
     const action = body?.action
+    if (action === 'status') {
+      const state = await auth.db.collection('leadSyncState').doc(office).get()
+      const data = state.data() || {}
+      const leads = await loadOfficeLeads(auth.db, office)
+      const conflicts = leads.flatMap((lead) => Object.entries(lead.source?.conflicts || {}).flatMap(([field, conflict]) => conflict ? [{
+        leadId: lead.leadId, recordId: lead.id, field,
+        sourceValue: conflict.sourceValue, operationalValue: conflict.operationalValue,
+      }] : []))
+      return res.status(200).json({
+        office, source: SHEET_SOURCE[office].label, url: SHEET_SOURCE[office].url,
+        baselineConfirmed: data['baselineConfirmed'] === true,
+        conflicts,
+        ...(typeof data['lastSyncAt'] === 'string' ? { lastSyncAt: data['lastSyncAt'] } : {}),
+        ...(data['lastSyncStatus'] === 'success' || data['lastSyncStatus'] === 'failed' ? { lastSyncStatus: data['lastSyncStatus'] } : {}),
+        ...(typeof data['lastSyncError'] === 'string' ? { lastSyncError: data['lastSyncError'] } : {}),
+        ...(data['lastSyncCounts'] ? { lastSyncCounts: data['lastSyncCounts'] } : {}),
+      })
+    }
     if (action === 'previewBaseline') return previewBaseline(auth.db, office, auth.uid, res)
+    if (action === 'resolveConflict') return resolveConflict(auth.db, office, auth.uid, body, res)
     if (action === 'confirmBaseline') {
       if (typeof body.previewId !== 'string') return res.status(400).json({ error: 'A baseline preview is required.' })
       const previewRef = auth.db.collection('leadSyncPreviews').doc(body.previewId)

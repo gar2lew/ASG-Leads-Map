@@ -22,6 +22,12 @@ describe('lead register domain model', () => {
     expect(result.source).toBeUndefined()
   })
 
+  it('omits an empty source-resolution map when hydrating legacy source metadata', () => {
+    const result = migrateLeadRecord({ ...base, source: { spreadsheetId: 'sheet-1', tabName: 'LEADS', sourceRow: 2, lastSeenAt: '2026-09-24T09:00:00.000Z', snapshot: {}, conflicts: {}, resolutions: {} } })
+
+    expect(result.source).not.toHaveProperty('resolutions')
+  })
+
   it('keys source LeadID within an office and normalises the fallback address and name', () => {
     expect(leadSourceIdentityKey('perth', 'Lead-42', '1 Main St', 'Ava Smith')).toBe(
       leadSourceIdentityKey('perth', ' Lead-42 ', 'Different address', 'Different name'),
@@ -86,6 +92,28 @@ describe('lead register domain model', () => {
       sourceValue: 'Old sheet note', operationalValue: '',
     })
     expect(mergeLeadSource(merged, incoming)).toEqual(merged)
+  })
+
+  it('honours a keep-Firestore resolution until Sheets catches up and asks again on a new source change', () => {
+    const record = {
+      ...base,
+      phone: '0400 000 000',
+      source: {
+        spreadsheetId: 'sheet-1', tabName: 'LEADS', sourceRow: 2, leadId: 'Lead-42',
+        lastSeenAt: '2026-09-24T09:00:00.000Z', snapshot: { phone: '0400 222 222' },
+        conflicts: {}, resolutions: { phone: { resolution: 'firestore' as const, sourceValue: '0400 222 222' } },
+      },
+    }
+    const unchangedSource = { ...record.source, lastSeenAt: '2026-09-25T09:00:00.000Z' }
+    const refreshed = mergeLeadSource(record, unchangedSource)
+    expect(refreshed.phone).toBe('0400 000 000')
+    expect(refreshed.source?.conflicts.phone).toBeUndefined()
+
+    const changedSource = { ...unchangedSource, lastSeenAt: '2026-09-26T09:00:00.000Z', snapshot: { phone: '0400 333 333' } }
+    const conflicted = mergeLeadSource(refreshed, changedSource)
+    expect(conflicted.phone).toBe('0400 000 000')
+    expect(conflicted.source?.conflicts.phone).toMatchObject({ sourceValue: '0400 333 333', operationalValue: '0400 000 000' })
+    expect(conflicted.source?.resolutions?.phone).toBeUndefined()
   })
 
   it('appends an activity without deleting the previous activity list', () => {
