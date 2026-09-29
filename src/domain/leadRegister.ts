@@ -1,3 +1,5 @@
+import type { PinOutcome } from './pinOutcome'
+
 export type LeadOffice = 'perth' | 'brisbane'
 export type LeadQualification = 'new' | 'qualified' | 'callback' | 'not_interested' | 'archived'
 export type LeadActivityKind = 'call' | 'door_knock'
@@ -51,6 +53,11 @@ export interface LeadRecord {
   callResult: string
   leadId: string
   office?: LeadOffice | undefined
+  pinId?: string | undefined
+  pinIds?: string[] | undefined
+  latitude?: number | undefined
+  longitude?: number | undefined
+  pinOutcome?: PinOutcome | undefined
   qualification: LeadQualification
   followUpDate?: string | undefined
   lastActivityAt?: string | undefined
@@ -90,6 +97,11 @@ export function migrateLeadRecord(input: LegacyLeadInput): LeadRecord {
     callResult: input.callResult || '',
     leadId: input.leadId || input.id,
     office: input.office,
+    pinId: input.pinId,
+    pinIds: input.pinIds ? [...input.pinIds] : undefined,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    pinOutcome: input.pinOutcome,
     qualification,
     followUpDate: input.followUpDate,
     lastActivityAt: input.lastActivityAt,

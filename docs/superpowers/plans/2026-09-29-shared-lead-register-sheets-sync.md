@@ -90,18 +90,17 @@
 **Files:**
 - Create: `src/domain/leadRegisterMigration.ts`
 - Test: `src/domain/leadRegisterMigration.test.ts`
-- Modify: `src/domain/pinStorage.ts`
-- Test: `src/domain/pinStorage.test.ts` (create if absent, following its current test setup).
+- `src/domain/pinStorage.ts` is consumed through its existing `getAllPins()` merge of remote pins and offline IndexedDB queue; no changes are needed here for the pure migration service.
 
 **Interfaces:**
 - Export `previewLegacyLeadMigration({ browserRecords, firestorePins, firestoreLeads }): MigrationPreview` and `migrateLegacyLeadRecords(preview, repository): Promise<MigrationResult>`.
 - `MigrationPreview` identifies matched, new, duplicate, conflicting, and unmapped records; migration never clears localStorage or IndexedDB.
 
-- [ ] Test repeat execution, duplicate matches, unmatched pins, preservation of activity/CRM fields, and no local deletion.
-- [ ] Run targeted migration tests; confirm failure before implementation.
-- [ ] Implement a preview-first, idempotent migration preserving source IDs where possible; map geocoded pins to the same lead record and retain offline queue behavior.
-- [ ] Run migration and pin-storage tests; expect PASS.
-- [ ] Commit as `feat: add previewed legacy lead migration`.
+- [x] Test repeat execution, duplicate matches, unmatched pins, preservation of activity/CRM fields, and no local deletion.
+- [x] Run targeted migration tests; confirm failure before implementation.
+- [x] Implement a preview-first, idempotent migration preserving source IDs where possible; map geocoded pins to the same lead record and retain offline queue behavior.
+- [x] Run migration tests; expect PASS. Pin-storage behavior remains unchanged and existing `getAllPins()` includes the offline queue.
+- [x] Commit as `feat: add previewed legacy lead migration`.
 
 ### Task 5: Implement deterministic Sheets reconciliation
 
