@@ -1,7 +1,7 @@
 # ASG Multi-Workspace and Shared Lead Register Design
 
 **Date:** 29 September 2026
-**Status:** Draft for user review
+**Status:** Approved for implementation planning
 
 ## Goal
 
@@ -91,7 +91,7 @@ The approved direction is Option A, with Firestore as the shared operational rec
 - Do not create separate Firebase projects, user accounts, or duplicate lead records for the workspaces.
 - Workspace visibility and route access must use existing capability checks. The workspace chooser must not reveal or grant a workspace merely because a user knows its URL.
 - Keep Google Sheets credentials server-side and read-only. Google Sheets is an inbound source; neither scheduled sync nor app edits write back to the spreadsheets.
-- Run an initial baseline sync with a preview and explicit confirmation. Follow it with an automatic scheduled refresh and a manual **Sync now** action. The refresh must be idempotent, retain source row/tab metadata, and never delete Firestore records because a row disappears from Sheets.
+- Run an initial baseline sync with a preview and explicit confirmation. Follow it with one once-nightly scheduled refresh and a manual **Sync now** action. The nightly refresh is owned by Vercel Cron; no separate Google Drive automation is required. The refresh must be idempotent, retain source row/tab metadata, and never delete Firestore records because a row disappears from Sheets.
 - The configured Perth and Brisbane workbooks and their lead-status tabs are inbound sources. Initial preview reports new records, matched updates, duplicates, invalid/skipped rows, and existing local data before any baseline write is confirmed.
 - Store the last-imported spreadsheet snapshot for each mapped source field. When a sheet field changes, update Firestore only if that field has not also changed in Firestore since the prior sync. If both sides changed the same field, preserve the Firestore value and surface a reviewable conflict instead of overwriting either value silently.
 - Source refreshes may update mapped spreadsheet fields such as contact details and the current spreadsheet status/result projection. App-owned activity history, app-authored notes/qualification decisions, CRM handoff state, and audit metadata must never be overwritten by a sheet refresh.
@@ -131,7 +131,6 @@ The approved direction is Option A, with Firestore as the shared operational rec
 - Splitting this repository into three deployed applications.
 - Replacing Firebase authentication or changing role assignments.
 - Introducing a direct Timely CRM API integration or automatic CRM submission.
-- Automatically writing app edits back to source Google Sheets.
 - Writing app edits back to the source Sheets.
 - Deleting or replacing existing map-pin or browser-local contact data before successful migration verification.
 - Reworking unrelated admin/settings features.
