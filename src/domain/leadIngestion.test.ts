@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ingestLead } from './leadIngestion'
+import { ingestLead, projectSheetLeadSource } from './leadIngestion'
 import type { Pin } from './pin'
 
 const geocodingResult = {
@@ -47,6 +47,21 @@ const validInput = {
 }
 
 describe('ingestLead', () => {
+  it('projects a sheet row into source metadata without blank fields erasing existing values', () => {
+    const projection = projectSheetLeadSource({
+      office: 'perth', spreadsheetId: 'sheet-1', tabName: 'LEADS', sourceRow: 7,
+      leadId: ' Lead-42 ', lastSeenAt: '2026-09-25T09:00:00.000Z',
+      fields: { leadName: ' Ava Smith ', address: ' 1 Main St ', phone: '12345', notes: '' },
+    })
+    expect(projection).toMatchObject({
+      source: {
+        spreadsheetId: 'sheet-1', tabName: 'LEADS', sourceRow: 7, leadId: 'Lead-42',
+        snapshot: { leadName: 'Ava Smith', address: '1 Main St' },
+      },
+    })
+    expect(projection.source.snapshot).not.toHaveProperty('phone')
+    expect(projection.source.snapshot).not.toHaveProperty('notes')
+  })
   it('rejects a lead without an address or contact detail without saving', async () => {
     const deps = dependencies()
 

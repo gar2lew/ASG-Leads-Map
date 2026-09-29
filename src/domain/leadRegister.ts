@@ -13,6 +13,28 @@ export interface LeadActivity {
   followUpDate?: string | undefined
 }
 
+export type LeadSourceField = 'date' | 'leadName' | 'address' | 'phone' | 'notes' |
+  'updateLead' | 'renterOwner' | 'superannuation' | 'repName' | 'leadStatus' |
+  'callTimestamp' | 'callResult'
+
+export type LeadSourceSnapshot = Partial<Pick<LeadRecord, LeadSourceField>>
+
+export interface LeadSourceConflict {
+  sourceValue: string | boolean
+  operationalValue: string | boolean
+  detectedAt: string
+}
+
+export interface LeadSourceMetadata {
+  spreadsheetId: string
+  tabName: string
+  sourceRow: number
+  leadId?: string | undefined
+  lastSeenAt: string
+  snapshot: LeadSourceSnapshot
+  conflicts: Partial<Record<LeadSourceField, LeadSourceConflict>>
+}
+
 export interface LeadRecord {
   id: string
   date: string
@@ -36,6 +58,7 @@ export interface LeadRecord {
   timelySyncedAt?: string | undefined
   timelySyncedBy?: string | undefined
   activities: LeadActivity[]
+  source?: LeadSourceMetadata | undefined
 }
 
 type LegacyLeadInput = Partial<LeadRecord> & { id: string }
@@ -74,7 +97,64 @@ export function migrateLeadRecord(input: LegacyLeadInput): LeadRecord {
     timelySyncedAt: input.timelySyncedAt,
     timelySyncedBy: input.timelySyncedBy,
     activities: [...(input.activities || [])],
+    source: input.source ? {
+      ...input.source,
+      snapshot: { ...input.source.snapshot },
+      conflicts: { ...input.source.conflicts },
+    } : undefined,
   }
+}
+
+function normaliseIdentityPart(value: string): string {
+  return value.toLocaleLowerCase('en-AU').replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+export function leadSourceIdentityKey(
+  office: LeadOffice,
+  leadId: string | undefined,
+  address: string,
+  leadName: string,
+): string | undefined {
+  const sourceId = leadId?.trim()
+  if (sourceId) return JSON.stringify([office, 'leadId', sourceId.toLocaleLowerCase('en-AU')])
+  const addressKey = normaliseIdentityPart(address)
+  const nameKey = normaliseIdentityPart(leadName)
+  return addressKey && nameKey ? JSON.stringify([office, 'addressName', addressKey, nameKey]) : undefined
+}
+
+const SOURCE_FIELDS: LeadSourceField[] = [
+  'date', 'leadName', 'address', 'phone', 'notes', 'updateLead', 'renterOwner',
+  'superannuation', 'repName', 'leadStatus', 'callTimestamp', 'callResult',
+]
+
+export function mergeLeadSource(record: LeadRecord, incoming: LeadSourceMetadata): LeadRecord {
+  const previous = record.source?.snapshot
+  const next: LeadRecord = { ...record }
+  const conflicts = { ...record.source?.conflicts }
+  for (const field of SOURCE_FIELDS) {
+    const sourceValue = incoming.snapshot[field]
+    if (sourceValue === undefined || sourceValue === '') continue
+    const operationalValue = record[field]
+    const previousValue = previous?.[field]
+    if (operationalValue === sourceValue || operationalValue === previousValue || operationalValue === '') {
+      // The field was not edited in the app, or was empty, so the sheet can refresh it.
+      Object.assign(next, { [field]: sourceValue })
+      delete conflicts[field]
+    } else {
+      conflicts[field] = {
+        sourceValue,
+        operationalValue,
+        detectedAt: conflicts[field]?.sourceValue === sourceValue
+          ? conflicts[field].detectedAt : incoming.lastSeenAt,
+      }
+    }
+  }
+  next.source = {
+    ...incoming,
+    snapshot: { ...previous, ...incoming.snapshot },
+    conflicts,
+  }
+  return next
 }
 
 export function appendActivity(record: LeadRecord, activity: LeadActivity): LeadRecord {

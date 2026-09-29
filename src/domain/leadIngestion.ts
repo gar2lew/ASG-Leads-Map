@@ -1,5 +1,6 @@
 import { searchAddress } from './geocoding'
 import { findLeadDuplicate, normaliseLeadAddress } from './leadImport'
+import { leadSourceIdentityKey, type LeadOffice, type LeadSourceMetadata, type LeadSourceSnapshot } from './leadRegister'
 import { firstLeadValidationReason, normaliseOptionalText, validateLeadInput } from './leadValidation'
 import { createPin, type Pin } from './pin'
 import { PinOutcome, type PinOutcome as PinOutcomeValue } from './pinOutcome'
@@ -35,6 +36,50 @@ const defaultDependencies: LeadIngestionDependencies = {
   geocode: searchAddress,
   getAllPins,
   savePin,
+}
+
+export interface SheetLeadSourceInput {
+  office: LeadOffice
+  spreadsheetId: string
+  tabName: string
+  sourceRow: number
+  leadId?: string | undefined
+  lastSeenAt: string
+  fields: LeadSourceSnapshot
+}
+
+export function projectSheetLeadSource(input: SheetLeadSourceInput): {
+  identityKey: string | undefined
+  office: LeadOffice
+  source: LeadSourceMetadata
+} {
+  const snapshot: LeadSourceSnapshot = {}
+  for (const [field, value] of Object.entries(input.fields) as Array<[keyof LeadSourceSnapshot, string | boolean | undefined]>) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (trimmed && (field !== 'phone' || !validateLeadInput({
+        address: input.fields.address || 'source row',
+        contactName: input.fields.leadName || 'source contact',
+        contactPhone: trimmed,
+      }).contactPhone)) Object.assign(snapshot, { [field]: trimmed })
+    } else if (typeof value === 'boolean') {
+      Object.assign(snapshot, { [field]: value })
+    }
+  }
+  const leadId = input.leadId?.trim() || undefined
+  return {
+    identityKey: leadSourceIdentityKey(input.office, leadId, snapshot.address || '', snapshot.leadName || ''),
+    office: input.office,
+    source: {
+      spreadsheetId: input.spreadsheetId,
+      tabName: input.tabName,
+      sourceRow: input.sourceRow,
+      leadId,
+      lastSeenAt: input.lastSeenAt,
+      snapshot,
+      conflicts: {},
+    },
+  }
 }
 
 export async function ingestLead(
