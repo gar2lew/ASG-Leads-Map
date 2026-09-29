@@ -47,6 +47,10 @@ function mapSnapshot(snapshot: Snapshot): LeadRecord[] {
   return snapshot.docs.map((item) => toLeadRecord(item.id, item.data()))
 }
 
+function withoutUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as Partial<T>
+}
+
 export function createFirestoreLeadRegisterRepository(db: Firestore, user: CurrentUser) {
   const leads = collection(db, 'leads')
 
@@ -89,9 +93,14 @@ export function createFirestoreLeadRegisterRepository(db: Firestore, user: Curre
       }
 
       const normalized = migrateLeadRecord({ ...input, office })
-      const { id, office: _office, source: _source, ...fields } = normalized
+      const {
+        id, office: _office, source: _source, activities: _activities,
+        timelySynced: _timelySynced, timelySyncedAt: _timelySyncedAt,
+        timelySyncedBy: _timelySyncedBy, lastActivityAt: _lastActivityAt,
+        ...fields
+      } = normalized
       await setDoc(doc(db, 'leads', id), {
-        ...fields,
+        ...withoutUndefined(fields),
         officeId: office,
         updatedAt: serverTimestamp(),
         ...(!existing ? { createdAt: serverTimestamp() } : {}),

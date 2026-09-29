@@ -88,6 +88,24 @@ describe('Firestore lead register repository', () => {
     expect(firestore.setDoc).not.toHaveBeenCalled()
   })
 
+  it('does not let general lead saves overwrite activity or Timely CRM state', async () => {
+    const repository = createFirestoreLeadRegisterRepository('db' as never, activeRep)
+    await repository.saveLeadRecord(lead({ activities: [{ id: 'stale-activity' }], timelySynced: true, timelySyncedAt: 'yesterday', timelySyncedBy: 'Old Rep' }) as never)
+
+    expect(firestore.setDoc).toHaveBeenCalledWith('lead-doc:lead-1', expect.not.objectContaining({
+      activities: expect.anything(), timelySynced: expect.anything(), timelySyncedAt: expect.anything(), timelySyncedBy: expect.anything(),
+    }), { merge: true })
+  })
+
+  it('omits absent optional fields because Firestore rejects undefined values', async () => {
+    const repository = createFirestoreLeadRegisterRepository('db' as never, activeRep)
+    await repository.saveLeadRecord(lead() as never)
+    const payload = firestore.setDoc.mock.calls[0]?.[1] as Record<string, unknown>
+
+    expect(payload).not.toHaveProperty('followUpDate')
+    expect(Object.values(payload).some((value) => value === undefined)).toBe(false)
+  })
+
   it('rejects moving an existing record to another office', async () => {
     const repository = createFirestoreLeadRegisterRepository('db' as never, activeRep)
     firestore.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ ...lead(), officeId: 'perth' }) })
