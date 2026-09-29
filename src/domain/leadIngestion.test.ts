@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ingestLead, projectSheetLeadSource } from './leadIngestion'
+import { filterLeadRecords, mergeLeadSource, migrateLeadRecord } from './leadRegister'
 import type { Pin } from './pin'
 
 const geocodingResult = {
@@ -86,6 +87,27 @@ describe('ingestLead', () => {
       date: '25/09/2026', callTimestamp: '2026-09-25T14:30',
       leadStatus: 'Booked', renterOwner: 'Renter', updateLead: true,
     })
+  })
+  it('rejects timestamps with out-of-range timezone offsets but accepts Perth offset', () => {
+    const sourceFor = (callTimestamp: string) => projectSheetLeadSource({
+      office: 'perth', spreadsheetId: 'sheet-1', tabName: 'LEADS', sourceRow: 10,
+      leadId: 'Lead-45', lastSeenAt: '2026-09-25T09:00:00.000Z', fields: { callTimestamp },
+    }).source.snapshot
+
+    expect(sourceFor('2026-09-25T14:30+99:99')).not.toHaveProperty('callTimestamp')
+    expect(sourceFor('2026-09-25T14:30+14:30')).not.toHaveProperty('callTimestamp')
+    expect(sourceFor('2026-09-25T14:30+08:00')).toEqual({ callTimestamp: '2026-09-25T14:30+08:00' })
+  })
+  it('normalizes a sheet status to the register label used by filters', () => {
+    const projected = projectSheetLeadSource({
+      office: 'perth', spreadsheetId: 'sheet-1', tabName: 'LEADS', sourceRow: 11,
+      leadId: 'Lead-46', lastSeenAt: '2026-09-25T09:00:00.000Z',
+      fields: { leadStatus: ' qualified ' },
+    })
+    const record = mergeLeadSource({ ...migrateLeadRecord({ id: 'lead-46' }), leadStatus: '' }, projected.source)
+
+    expect(projected.source.snapshot.leadStatus).toBe('Qualified')
+    expect(filterLeadRecords([record], { status: 'Qualified' }, '2026-09-25')).toEqual([record])
   })
   it('rejects a lead without an address or contact detail without saving', async () => {
     const deps = dependencies()

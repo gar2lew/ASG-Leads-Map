@@ -49,9 +49,11 @@ export interface SheetLeadSourceInput {
   fields: Partial<Record<LeadSourceField, unknown>>
 }
 
-const SOURCE_STATUSES = new Set([
-  'new', 'lead', 'qualified', 'callback', 'appointment set', 'not interested',
-  'no answer', 'revisit', 'wrong number', 'booked',
+const SOURCE_STATUSES = new Map([
+  ['new', 'New'], ['lead', 'Lead'], ['qualified', 'Qualified'], ['callback', 'Callback'],
+  ['appointment set', 'Appointment Set'], ['not interested', 'Not Interested'],
+  ['no answer', 'No Answer'], ['revisit', 'Revisit'], ['wrong number', 'Wrong Number'],
+  ['booked', 'Booked'],
 ])
 
 function validIsoDate(value: string): boolean {
@@ -69,9 +71,13 @@ function validSourceDate(value: string): boolean {
 }
 
 function validSourceTimestamp(value: string): boolean {
-  const match = /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?$/i.exec(value)
+  const match = /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|[+-](\d{2}):(\d{2}))?$/i.exec(value)
   if (!match || !match[1]) return false
-  return validSourceDate(match[1]) && Number(match[2]) < 24 && Number(match[3]) < 60 && (match[4] === undefined || Number(match[4]) < 60)
+  const offsetHours = match[5] === undefined ? 0 : Number(match[5])
+  const offsetMinutes = match[6] === undefined ? 0 : Number(match[6])
+  return validSourceDate(match[1]) && Number(match[2]) < 24 && Number(match[3]) < 60 &&
+    (match[4] === undefined || Number(match[4]) < 60) &&
+    offsetHours <= 14 && offsetMinutes < 60 && (offsetHours < 14 || offsetMinutes === 0)
 }
 
 export function projectSheetLeadSource(input: SheetLeadSourceInput): {
@@ -88,9 +94,13 @@ export function projectSheetLeadSource(input: SheetLeadSourceInput): {
         if (/^(true|false)$/i.test(trimmed)) snapshot.updateLead = trimmed.toLowerCase() === 'true'
         continue
       }
+      if (field === 'leadStatus') {
+        const canonical = SOURCE_STATUSES.get(trimmed.toLowerCase().replace(/\s+/g, ' '))
+        if (canonical) snapshot.leadStatus = canonical
+        continue
+      }
       if ((field === 'date' && !validSourceDate(trimmed)) ||
         (field === 'callTimestamp' && !validSourceTimestamp(trimmed)) ||
-        (field === 'leadStatus' && !SOURCE_STATUSES.has(trimmed.toLowerCase().replace(/\s+/g, ' '))) ||
         (field === 'renterOwner' && !/^(owner|renter|tenant)$/i.test(trimmed))) continue
       if (field !== 'phone' || !validateLeadInput({
         address: 'source row',
