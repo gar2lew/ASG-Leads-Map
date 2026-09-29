@@ -7,6 +7,7 @@ import { LeadRegister } from './call-centre/LeadRegister'
 import { QuickCapturePanel, type CaptureMode } from './call-centre/QuickCapturePanel'
 import './CallLogPage.css'
 import './call-centre/CallCentreWorkspace.css'
+import { getAuthService } from '../auth'
 import { fetchGoogleSheetCsv, googleSheetSources } from '../integrations/googleSheets'
 
 const repository = createLeadRegisterRepository()
@@ -63,7 +64,9 @@ export function CallLogPage() {
     setSheetImporting(office)
     setImportMessage('')
     try {
-      const result = await repository.importLeadCsv(await fetchGoogleSheetCsv(source), office)
+      const token = await getAuthService().getAccessToken()
+      if (!token) throw new Error('Your sign-in expired. Sign in again, then retry the import.')
+      const result = await repository.importLeadCsv(await fetchGoogleSheetCsv(source, token), office)
       setRecords(await repository.loadLeadRecords())
       setImportMessage(`${result.records.length} ${office} leads imported${result.skipped ? `, ${result.skipped} skipped` : ''}.`)
     } catch (error) {

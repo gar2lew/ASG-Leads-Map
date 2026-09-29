@@ -76,7 +76,31 @@ export function createLeadRegisterRepository(storage: Storage = localStorage) {
           timelySynced: get('Timely CRM').toLowerCase() === 'true', timelySyncedAt: get('Timely CRM At') || undefined, timelySyncedBy: get('Timely CRM By') || undefined,
         }))
       }
-      const combined = [...records, ...read(storage)]
+      const combined = read(storage)
+      for (const imported of records) {
+        const importedAddress = imported.address.trim().toLowerCase()
+        const importedName = imported.leadName.trim().toLowerCase()
+        const matchIndex = office ? combined.findIndex((existing) => {
+          if (existing.office !== office) return false
+          if (imported.leadId) return existing.leadId === imported.leadId
+          return existing.address.trim().toLowerCase() === importedAddress && existing.leadName.trim().toLowerCase() === importedName
+        }) : -1
+        if (matchIndex < 0) {
+          combined.unshift(imported)
+          continue
+        }
+        const existing = combined[matchIndex]
+        if (existing) combined[matchIndex] = {
+          ...existing,
+          ...imported,
+          id: existing.id,
+          activities: existing.activities,
+          timelySynced: existing.timelySynced,
+          timelySyncedAt: existing.timelySyncedAt,
+          timelySyncedBy: existing.timelySyncedBy,
+          lastActivityAt: existing.lastActivityAt,
+        }
+      }
       write(storage, combined)
       return { records, skipped }
     },
