@@ -27,6 +27,7 @@ function at(headers: string[], name: string) {
   return headers.findIndex((header) => header.trim().toLowerCase() === name.toLowerCase())
 }
 
+/** Retained localStorage adapter for legacy migration and CSV fallback; shared runtime data uses Firestore. */
 export function createLeadRegisterRepository(storage: Storage = localStorage) {
   return {
     async loadLeadRecords() {

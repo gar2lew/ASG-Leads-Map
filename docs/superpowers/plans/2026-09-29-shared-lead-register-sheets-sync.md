@@ -15,6 +15,7 @@
 - Google Sheets credentials stay server-side and read-only.
 - Firestore is the shared operational source of truth; app edits are not written back to Sheets.
 - Lead reads and writes remain scoped to the signed-in user's office and role.
+- Browser clients may edit operational lead fields but cannot create or modify Sheets source snapshots, conflicts, or sync audit metadata; only the server-side Admin sync path may do so.
 - Never delete Firestore records because a source row disappears; migration is idempotent and preserves old data until verified.
 - Preserve Australian date/phone formatting, existing deep links, CSV export, Timely handoff state, and offline map activity.
 - Keep the existing Vercel function budget in mind; prefer extending `api/leads/index.ts` rather than adding another function unless deployment limits are verified.
@@ -57,15 +58,15 @@
 - Test: `src/domain/leadRegisterRepository.test.ts`
 
 **Interfaces:**
-- Export `createFirestoreLeadRegisterRepository(db, user)` implementing `loadLeadRecords(): Promise<LeadRecord[]>`, `subscribeLeadRecords(onRecords, onError): Unsubscribe`, `saveLeadRecord(record): Promise<LeadRecord>`, `addLeadActivity(recordId, activity): Promise<void>`, `setTimelyHandoff(recordId, sent, user, timestamp?): Promise<void>`, and `upsertSourceRecords(records, source): Promise<UpsertSummary>`.
-- Export `UpsertSummary` with inserted, updated, unchanged, skipped, and conflicts counts.
+- Export `createFirestoreLeadRegisterRepository(db, user)` implementing `loadLeadRecords(): Promise<LeadRecord[]>`, `subscribeLeadRecords(onRecords, onError): Unsubscribe`, `saveLeadRecord(record): Promise<LeadRecord>`, `addLeadActivity(recordId, activity): Promise<void>`, and `setTimelyHandoff(recordId, sent, user, timestamp?): Promise<void>`.
+- `saveLeadRecord` preserves existing `source` metadata; browser callers cannot create or edit source snapshots/conflicts. Sheets source upserts and reconciliation counts belong to the server-side API in Task 5.
 - Keep `createLeadRegisterRepository(storage?)` available for explicit legacy migration and existing tests; page code must use the signed-in Firestore repository after cutover.
 
-- [ ] Test subscriptions, office filtering, activity append, Timely state retention, identity upsert, and source-field merge using the project’s Firestore test/emulator conventions.
-- [ ] Run targeted repository tests and confirm the new cases fail.
-- [ ] Implement the repository using Firestore `query`/`onSnapshot`/`setDoc`/transactions; do not expose Admin credentials to browser code.
-- [ ] Run targeted tests; expect PASS and no regressions in `leadRegisterRepository.test.ts`.
-- [ ] Commit as `feat: add shared Firestore lead repository`.
+  - [x] Test subscriptions, office filtering, activity append, Timely state retention, source metadata preservation, and client rejection of source-field writes using repository tests.
+  - [x] Run targeted repository tests and confirm the new cases fail before implementation.
+  - [x] Implement the repository using Firestore `query`/`onSnapshot`/merge-only `setDoc` plus atomic `arrayUnion` activity append; do not expose Admin credentials to browser code.
+  - [x] Run targeted tests; expect PASS and no regressions in `leadRegisterRepository.test.ts`.
+  - [x] Commit as `feat: add shared Firestore lead repository` (review fix committed separately).
 
 ### Task 3: Tighten Firestore rules and indexes for shared records
 
@@ -75,14 +76,14 @@
 - Test: existing Firestore rules test files (locate with `Get-ChildItem -Recurse -Filter '*rules*test*'` before editing; add `tests/firestore/leads.rules.test.ts` if none exist).
 
 **Interfaces:**
-- Use the canonical `leads/{leadId}` document with required `officeId` and immutable office identity on update.
+- Use the canonical `leads/{leadId}` document with required `officeId` and immutable office identity on update; deny client creation or modification of source metadata.
 - Preserve the server-only Admin sync path, which bypasses client security rules; do not add browser write privileges for sync metadata outside the user's office.
 
-- [ ] Add tests for signed-out, inactive, same-office, cross-office, and super-admin read/write behavior plus officeId mutation rejection.
-- [ ] Run the repository’s documented rules-emulator command; confirm new tests fail against the current broad lead rules.
-- [ ] Implement least-privilege create/read/update rules and only indexes required by the actual workspace queries.
-- [ ] Run rules tests and TypeScript/build checks; expect PASS.
-- [ ] Commit as `fix: scope shared leads by active user office`.
+  - [x] Add emulator tests for signed-out, inactive, same-office, cross-office, and super-admin read/write behavior plus officeId mutation and source metadata rejection.
+  - [x] Run the rules-emulator command; confirmed source metadata creation failed against the original rules.
+  - [x] Implement least-privilege create/read/update rules; no composite indexes are required for current office-only equality queries.
+  - [x] Run rules tests and TypeScript/build checks; expect PASS.
+  - [x] Commit as `fix: scope shared leads by active user office` after focused security review.
 
 ### Task 4: Build safe legacy migration preview and execution
 

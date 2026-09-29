@@ -23,6 +23,10 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.officeId == officeId);
     }
 
+    function validOffice(officeId) {
+      return officeId in ['perth', 'brisbane'];
+    }
+
     // User profiles. Admin can read/write all; a user can read their own.
     match /users/{uid} {
       // Users must be able to read their own profile during Firebase sign-in
@@ -47,10 +51,17 @@ service cloud.firestore {
 
     match /leads/{leadId} {
       allow read: if isActiveUser() && sameOffice(resource.data.officeId);
-      allow create: if isActiveUser() && sameOffice(request.resource.data.officeId);
+      allow create: if isActiveUser()
+        && validOffice(request.resource.data.officeId)
+        && sameOffice(request.resource.data.officeId)
+        && !request.resource.data.keys().hasAny(['source']);
       allow update: if isActiveUser()
         && sameOffice(resource.data.officeId)
-        && sameOffice(request.resource.data.officeId);
+        && validOffice(resource.data.officeId)
+        && validOffice(request.resource.data.officeId)
+        && sameOffice(request.resource.data.officeId)
+        && request.resource.data.officeId == resource.data.officeId
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['source']);
       allow delete: if false;
     }
   }
