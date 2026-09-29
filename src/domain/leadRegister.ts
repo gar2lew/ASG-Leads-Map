@@ -1,4 +1,4 @@
-import type { PinOutcome } from './pinOutcome'
+import type { PinOutcome } from './pinOutcome.js'
 
 export type LeadOffice = 'perth' | 'brisbane'
 export type LeadQualification = 'new' | 'qualified' | 'callback' | 'not_interested' | 'archived'

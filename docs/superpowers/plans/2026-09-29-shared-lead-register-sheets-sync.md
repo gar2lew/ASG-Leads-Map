@@ -116,11 +116,11 @@
 - The existing `/api/leads` function accepts authenticated manual-sync requests and a scheduled request authenticated by `Authorization: Bearer ${CRON_SECRET}`; both call the same reconciliation service and return the summary plus conflict details. Keep the Vercel function count at or below the current 12 by extending this function rather than adding one.
 - Cron must be once nightly, idempotent, and read-only to Sheets. Do not write inbound rows to Firestore until the baseline is explicitly confirmed.
 
-- [ ] Test six source tabs for Perth and Brisbane, baseline preview/confirmation, duplicate suppression, row deletion, invalid/missing fields, concurrent app edits, cron auth, and manual user auth.
-- [ ] Run targeted integration/API tests; confirm failure before implementation.
-- [ ] Implement shared reconciliation and server-side Admin writes; keep credentials and conflict resolution server-protected and never overwrite activities, notes, qualification, Timely handoff, or audit fields.
-- [ ] Configure `0 15 * * *` in `vercel.json` targeting `/api/leads` (11:00 p.m. Perth time); verify it matches Vercel Hobby's once-per-day limit and protect the handler with `CRON_SECRET`.
-- [ ] Run tests and production build; expect PASS.
+- [x] Test six source tabs for Perth and Brisbane, baseline preview/confirmation, duplicate suppression, row deletion, invalid/missing fields, concurrent app edits, cron auth, and manual user auth; inspect live workbook metadata and confirm the six configured data tabs share the expected 13-column header.
+- [x] Run targeted domain/API tests; add preview-without-lead-write, explicit confirmation, repeat-sync idempotency, office isolation, invalid-row no-write, and failure-state coverage.
+- [x] Implement shared reconciliation and server-side Admin writes; preserve operational fields and activity/Timely/audit state, block ambiguous identities and invalid source rows, and never delete absent rows.
+- [x] Configure `0 15 * * *` in `vercel.json` targeting `/api/leads` (11:00 p.m. Perth time); protect the handler with `CRON_SECRET` and document required server variables. Production still requires setting `CRON_SECRET` and a confirmed baseline before nightly writes can occur.
+- [x] Run tests and production build; expect PASS.
 - [ ] Commit as `feat: reconcile nightly Sheets leads into Firestore`.
 
 ### Task 6: Add import baseline, manual sync, and conflict review UI
