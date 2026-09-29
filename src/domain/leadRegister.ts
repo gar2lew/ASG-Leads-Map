@@ -136,7 +136,7 @@ export function mergeLeadSource(record: LeadRecord, incoming: LeadSourceMetadata
     if (sourceValue === undefined || sourceValue === '') continue
     const operationalValue = record[field]
     const previousValue = previous?.[field]
-    if (operationalValue === sourceValue || operationalValue === previousValue || operationalValue === '') {
+    if (operationalValue === sourceValue || operationalValue === previousValue || (previousValue === undefined && operationalValue === '')) {
       // The field was not edited in the app, or was empty, so the sheet can refresh it.
       Object.assign(next, { [field]: sourceValue })
       delete conflicts[field]

@@ -26,6 +26,23 @@ describe('local lead register repository', () => {
     const csv = repository.exportLeadCsv(imported.records)
     expect(csv).toContain('Spoke, qualified')
   })
+  it('retains source metadata when CSV reimport updates a matching local record', async () => {
+    const repository = createLeadRegisterRepository()
+    const source = {
+      spreadsheetId: 'sheet-1', tabName: 'LEADS', sourceRow: 4, leadId: 'Lead-42',
+      lastSeenAt: '2026-09-25T09:00:00.000Z', snapshot: { leadName: 'Ava' }, conflicts: {},
+    }
+    await repository.saveLeadRecords([{
+      id: 'lead-1', office: 'perth', leadId: 'Lead-42', leadName: 'Ava',
+      address: '1 Main St', source,
+    }])
+
+    await repository.importLeadCsv('Lead Name,Address,LeadID\nAva Jones,1 Main St,Lead-42', 'perth')
+
+    const [record] = await repository.loadLeadRecords()
+    expect(record?.leadName).toBe('Ava Jones')
+    expect(record?.source).toEqual(source)
+  })
 
   it('records and clears Timely CRM handoff metadata', async () => {
     const repository = createLeadRegisterRepository()

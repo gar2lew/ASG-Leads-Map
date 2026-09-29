@@ -1,6 +1,7 @@
 import { searchAddress } from './geocoding'
+import { isValidAustralianDate } from './date'
 import { findLeadDuplicate, normaliseLeadAddress } from './leadImport'
-import { leadSourceIdentityKey, type LeadOffice, type LeadSourceMetadata, type LeadSourceSnapshot } from './leadRegister'
+import { leadSourceIdentityKey, type LeadOffice, type LeadSourceField, type LeadSourceMetadata, type LeadSourceSnapshot } from './leadRegister'
 import { firstLeadValidationReason, normaliseOptionalText, validateLeadInput } from './leadValidation'
 import { createPin, type Pin } from './pin'
 import { PinOutcome, type PinOutcome as PinOutcomeValue } from './pinOutcome'
@@ -45,7 +46,32 @@ export interface SheetLeadSourceInput {
   sourceRow: number
   leadId?: string | undefined
   lastSeenAt: string
-  fields: LeadSourceSnapshot
+  fields: Partial<Record<LeadSourceField, unknown>>
+}
+
+const SOURCE_STATUSES = new Set([
+  'new', 'lead', 'qualified', 'callback', 'appointment set', 'not interested',
+  'no answer', 'revisit', 'wrong number', 'booked',
+])
+
+function validIsoDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return false
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const parsed = new Date(Date.UTC(year, month - 1, day))
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day
+}
+
+function validSourceDate(value: string): boolean {
+  return validIsoDate(value) || isValidAustralianDate(value)
+}
+
+function validSourceTimestamp(value: string): boolean {
+  const match = /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?$/i.exec(value)
+  if (!match || !match[1]) return false
+  return validSourceDate(match[1]) && Number(match[2]) < 24 && Number(match[3]) < 60 && (match[4] === undefined || Number(match[4]) < 60)
 }
 
 export function projectSheetLeadSource(input: SheetLeadSourceInput): {
@@ -54,15 +80,24 @@ export function projectSheetLeadSource(input: SheetLeadSourceInput): {
   source: LeadSourceMetadata
 } {
   const snapshot: LeadSourceSnapshot = {}
-  for (const [field, value] of Object.entries(input.fields) as Array<[keyof LeadSourceSnapshot, string | boolean | undefined]>) {
+  for (const [field, value] of Object.entries(input.fields) as Array<[LeadSourceField, unknown]>) {
     if (typeof value === 'string') {
       const trimmed = value.trim()
-      if (trimmed && (field !== 'phone' || !validateLeadInput({
-        address: input.fields.address || 'source row',
-        contactName: input.fields.leadName || 'source contact',
+      if (!trimmed) continue
+      if (field === 'updateLead') {
+        if (/^(true|false)$/i.test(trimmed)) snapshot.updateLead = trimmed.toLowerCase() === 'true'
+        continue
+      }
+      if ((field === 'date' && !validSourceDate(trimmed)) ||
+        (field === 'callTimestamp' && !validSourceTimestamp(trimmed)) ||
+        (field === 'leadStatus' && !SOURCE_STATUSES.has(trimmed.toLowerCase().replace(/\s+/g, ' '))) ||
+        (field === 'renterOwner' && !/^(owner|renter|tenant)$/i.test(trimmed))) continue
+      if (field !== 'phone' || !validateLeadInput({
+        address: 'source row',
+        contactName: 'source contact',
         contactPhone: trimmed,
-      }).contactPhone)) Object.assign(snapshot, { [field]: trimmed })
-    } else if (typeof value === 'boolean') {
+      }).contactPhone) Object.assign(snapshot, { [field]: trimmed })
+    } else if (field === 'updateLead' && typeof value === 'boolean') {
       Object.assign(snapshot, { [field]: value })
     }
   }

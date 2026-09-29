@@ -62,6 +62,31 @@ describe('ingestLead', () => {
     expect(projection.source.snapshot).not.toHaveProperty('phone')
     expect(projection.source.snapshot).not.toHaveProperty('notes')
   })
+  it('omits malformed mapped dates, timestamps, and status-like values', () => {
+    const projection = projectSheetLeadSource({
+      office: 'perth', spreadsheetId: 'sheet-1', tabName: 'LEADS', sourceRow: 8,
+      leadId: 'Lead-43', lastSeenAt: '2026-09-25T09:00:00.000Z',
+      fields: {
+        date: '31/02/2026', callTimestamp: 'not a time', leadStatus: '#N/A',
+        renterOwner: '???', updateLead: 'maybe',
+      },
+    })
+    expect(projection.source.snapshot).toEqual({})
+  })
+  it('accepts the app date format, Australian display dates, and supported sheet statuses', () => {
+    const projection = projectSheetLeadSource({
+      office: 'brisbane', spreadsheetId: 'sheet-2', tabName: 'BOOKED', sourceRow: 9,
+      leadId: 'Lead-44', lastSeenAt: '2026-09-25T09:00:00.000Z',
+      fields: {
+        date: '25/09/2026', callTimestamp: '2026-09-25T14:30',
+        leadStatus: 'Booked', renterOwner: 'Renter', updateLead: 'TRUE',
+      },
+    })
+    expect(projection.source.snapshot).toEqual({
+      date: '25/09/2026', callTimestamp: '2026-09-25T14:30',
+      leadStatus: 'Booked', renterOwner: 'Renter', updateLead: true,
+    })
+  })
   it('rejects a lead without an address or contact detail without saving', async () => {
     const deps = dependencies()
 

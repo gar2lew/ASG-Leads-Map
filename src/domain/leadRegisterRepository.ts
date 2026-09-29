@@ -99,6 +99,7 @@ export function createLeadRegisterRepository(storage: Storage = localStorage) {
           timelySyncedAt: existing.timelySyncedAt,
           timelySyncedBy: existing.timelySyncedBy,
           lastActivityAt: existing.lastActivityAt,
+          source: existing.source,
         }
       }
       write(storage, combined)

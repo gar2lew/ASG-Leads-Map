@@ -68,6 +68,25 @@ describe('lead register domain model', () => {
     expect(merged.timelySyncedBy).toBe('Manager')
     expect(mergeLeadSource(merged, source)).toEqual(merged)
   })
+  it('keeps a deliberately cleared operational note when the sheet still has the old value', () => {
+    const record = {
+      ...base, notes: '',
+      source: {
+        spreadsheetId: 'sheet-1', tabName: 'LEADS', sourceRow: 2, leadId: 'Lead-42',
+        lastSeenAt: '2026-09-24T09:00:00.000Z', snapshot: { notes: 'Old sheet note' }, conflicts: {},
+      },
+    }
+    const incoming = {
+      ...record.source, lastSeenAt: '2026-09-25T09:00:00.000Z', snapshot: { notes: 'Old sheet note' },
+    }
+
+    const merged = mergeLeadSource(record, incoming)
+    expect(merged.notes).toBe('')
+    expect(merged.source?.conflicts.notes).toMatchObject({
+      sourceValue: 'Old sheet note', operationalValue: '',
+    })
+    expect(mergeLeadSource(merged, incoming)).toEqual(merged)
+  })
 
   it('appends an activity without deleting the previous activity list', () => {
     const previous: LeadActivity = {
