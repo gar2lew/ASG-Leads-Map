@@ -15,6 +15,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { appendActivity, migrateLeadRecord, type LeadActivity, type LeadOffice, type LeadRecord } from './leadRegister'
+import { PinOutcome } from './pinOutcome'
 import { Role, type CurrentUser } from './roles'
 
 type RecordInput = Partial<LeadRecord> & { id: string }
@@ -49,6 +50,19 @@ function mapSnapshot(snapshot: Snapshot): LeadRecord[] {
 
 function withoutUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
   return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as Partial<T>
+}
+
+function pinOutcomeForActivity(activity: LeadActivity): PinOutcome | undefined {
+  if (activity.kind !== 'door_knock') return undefined
+  switch (activity.outcome.trim().toLocaleLowerCase('en-AU')) {
+    case 'knocked': return PinOutcome.Knocked
+    case 'no answer': return PinOutcome.NotKnocked
+    case 'not interested': return PinOutcome.NotInterested
+    case 'lead qualified':
+    case 'appointment set': return PinOutcome.Lead
+    case 'follow-up': return PinOutcome.Revisit
+    default: return undefined
+  }
 }
 
 export function createFirestoreLeadRegisterRepository(db: Firestore, user: CurrentUser) {
@@ -116,8 +130,34 @@ export function createFirestoreLeadRegisterRepository(db: Firestore, user: Curre
         activities: arrayUnion(activity),
         lastActivityAt: updated.lastActivityAt,
         ...(activity.kind === 'call' ? { callTimestamp: updated.callTimestamp, callResult: updated.callResult } : {}),
+        ...(pinOutcomeForActivity(activity) ? { pinOutcome: pinOutcomeForActivity(activity) } : {}),
         ...(activity.notes ? { notes: activity.notes } : {}),
         ...(activity.followUpDate ? { followUpDate: activity.followUpDate } : {}),
+        updatedAt: serverTimestamp(),
+      })
+    },
+
+    async updateLeadFromPin(recordId: string, pin: {
+      pinId: string
+      latitude: number
+      longitude: number
+      pinOutcome: LeadRecord['pinOutcome']
+      address?: string | undefined
+      notes?: string | undefined
+      leadName?: string | undefined
+      phone?: string | undefined
+    }): Promise<void> {
+      const { reference } = await getAccessibleLead(recordId)
+      await updateDoc(reference, {
+        pinId: pin.pinId,
+        pinIds: arrayUnion(pin.pinId),
+        latitude: pin.latitude,
+        longitude: pin.longitude,
+        pinOutcome: pin.pinOutcome,
+        ...(pin.address !== undefined ? { address: pin.address } : {}),
+        ...(pin.notes !== undefined ? { notes: pin.notes } : {}),
+        ...(pin.leadName !== undefined ? { leadName: pin.leadName } : {}),
+        ...(pin.phone !== undefined ? { phone: pin.phone } : {}),
         updatedAt: serverTimestamp(),
       })
     },

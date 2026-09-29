@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createLeadRegisterRepository } from './leadRegisterRepository'
+import { createLeadRegisterRepository, parseLeadCsv } from './leadRegisterRepository'
 
 describe('local lead register repository', () => {
   beforeEach(() => localStorage.clear())
@@ -25,6 +25,14 @@ describe('local lead register repository', () => {
 
     const csv = repository.exportLeadCsv(imported.records)
     expect(csv).toContain('Spoke, qualified')
+  })
+  it('parses imported records without persisting them into the legacy browser register', () => {
+    const parsed = parseLeadCsv('Lead Name,Address,LeadID\nAva,1 Main St,lead-1\n,,', 'perth')
+
+    expect(parsed.records).toHaveLength(1)
+    expect(parsed.records[0]).toMatchObject({ leadId: 'lead-1', office: 'perth', leadName: 'Ava' })
+    expect(parsed.skipped).toBe(1)
+    expect(localStorage.getItem('asg-call-log')).toBeNull()
   })
   it('retains source metadata when CSV reimport updates a matching local record', async () => {
     const repository = createLeadRegisterRepository()

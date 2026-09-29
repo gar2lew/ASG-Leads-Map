@@ -125,6 +125,31 @@ describe('Firestore lead register repository', () => {
     }))
   })
 
+  it('updates only linked map fields when a pin changes, leaving source and activity data untouched', async () => {
+    const repository = createFirestoreLeadRegisterRepository('db' as never, activeRep)
+    await repository.updateLeadFromPin('lead-1', {
+      pinId: 'pin-7', latitude: -31.95, longitude: 115.86, pinOutcome: 'knocked', address: '2 Main St',
+    })
+
+    expect(firestore.updateDoc).toHaveBeenCalledWith('lead-doc:lead-1', expect.objectContaining({
+      pinId: 'pin-7', pinIds: { arrayUnion: 'pin-7' }, latitude: -31.95, longitude: 115.86,
+      pinOutcome: 'knocked', address: '2 Main St', updatedAt: 'server-time',
+    }))
+    const patch = firestore.updateDoc.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(patch).not.toHaveProperty('source')
+    expect(patch).not.toHaveProperty('activities')
+  })
+
+  it('reflects door-knock outcomes in the shared lead map outcome', async () => {
+    const repository = createFirestoreLeadRegisterRepository('db' as never, activeRep)
+    await repository.addLeadActivity('lead-1', {
+      id: 'knock-1', leadId: 'lead-1', kind: 'door_knock', occurredAt: '2026-09-29T10:00:00.000Z',
+      repName: 'Pat Rep', outcome: 'Lead Qualified', notes: 'Booked an appointment',
+    })
+
+    expect(firestore.updateDoc).toHaveBeenCalledWith('lead-doc:lead-1', expect.objectContaining({ pinOutcome: 'lead' }))
+  })
+
   it('writes only Timely handoff state through the dedicated action', async () => {
     const repository = createFirestoreLeadRegisterRepository('db' as never, activeRep)
 

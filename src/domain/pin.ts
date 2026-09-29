@@ -15,6 +15,7 @@ export interface Pin {
   updatedAt: string
   createdBy: string
   officeId?: OfficeId
+  linkedLeadId?: string
   source?: 'manual' | 'jotform'
   externalId?: string
   synced: boolean

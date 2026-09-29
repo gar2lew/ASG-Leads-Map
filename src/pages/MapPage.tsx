@@ -3,13 +3,17 @@ import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Pin, PinOutcome } from '../domain'
 import type { CreatePinInput } from '../domain'
+import { countLeadsNeedingLocation, mergeLeadMapPins } from '../domain/leadMapProjection'
+import { createFirestoreLeadRegisterRepository } from '../domain/firestoreLeadRegisterRepository'
+import { migrateLeadRecord, type LeadRecord } from '../domain/leadRegister'
+import { getFirestoreDb } from '../firebase/firestore'
+import { isFirebaseConfigured } from '../firebase/config'
 import {
   pinOutcomeOrder,
   pinOutcomeLabel,
   pinOutcomeColor,
   getAllPins,
   savePin,
-  getPinCountByOutcome,
   createPin,
   searchAddress,
   canExportData,
@@ -47,7 +51,8 @@ export function MapPage() {
   const provisionalMarkerRef = useRef<maplibregl.Marker | null>(null)
   const tileErrorRef = useRef<HTMLDivElement | null>(null)
 
-  const [pins, setPins] = useState<Pin[]>([])
+  const [cachedPins, setCachedPins] = useState<Pin[]>([])
+  const [leadRecords, setLeadRecords] = useState<LeadRecord[]>([])
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [outcomeFilter, setOutcomeFilter] = useState<PinOutcome | ''>('')
@@ -57,7 +62,6 @@ export function MapPage() {
   const [pendingCoordinates, setPendingCoordinates] = useState<{ latitude: number; longitude: number } | null>(null)
   const [editingPin, setEditingPin] = useState<Pin | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [outcomeCounts, setOutcomeCounts] = useState<Record<string, number>>({})
   const [isAddingPin, setIsAddingPin] = useState(false)
   const [showTileError, setShowTileError] = useState(false)
   const [feedback, setFeedback] = useState<MapFeedbackValue | null>(null)
@@ -67,6 +71,13 @@ export function MapPage() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [locationStatus, setLocationStatus] = useState<'requesting' | 'located' | 'fallback'>('requesting')
   const currentUser = useCurrentUser()
+  const leadRepository = useMemo(() => isFirebaseConfigured() ? createFirestoreLeadRegisterRepository(getFirestoreDb(), currentUser) : null, [currentUser])
+  const pins = useMemo(() => mergeLeadMapPins(cachedPins, leadRecords), [cachedPins, leadRecords])
+  const leadsNeedingLocation = useMemo(() => countLeadsNeedingLocation(leadRecords), [leadRecords])
+  const outcomeCounts = useMemo(() => pins.reduce<Record<string, number>>((counts, pin) => {
+    counts[pin.outcome] = (counts[pin.outcome] || 0) + 1
+    return counts
+  }, {}), [pins])
   const showExport = canExportData(currentUser.role)
   const canCreatePins = hasCapability(currentUser.role, 'pins:create')
 
@@ -84,15 +95,20 @@ export function MapPage() {
 
   const loadPins = useCallback(async () => {
     try {
-      const [loadedPins, counts] = await Promise.all([getAllPins(), getPinCountByOutcome()])
-      setPins(loadedPins)
-      setOutcomeCounts(counts)
+      setCachedPins(await getAllPins())
     } catch (error) {
       console.error('Failed to load pins:', error)
     } finally {
       setIsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    if (!leadRepository) return
+    return leadRepository.subscribeLeadRecords(setLeadRecords, (error) => {
+      console.error('Failed to subscribe to shared leads:', error)
+    })
+  }, [leadRepository])
 
   // Load pins on mount
   useEffect(() => {
@@ -426,9 +442,13 @@ export function MapPage() {
     try {
       if (editingPin) {
         // Update existing pin
-        const updatedPin = { ...editingPin, ...data, updatedAt: new Date().toISOString(), synced: false } as Pin
+        const linkedLead = leadRecords.find((record) => (record.pinId || record.id) === editingPin.id)
+        const updatedPin = {
+          ...editingPin, ...data, ...(linkedLead ? { linkedLeadId: linkedLead.id } : {}),
+          updatedAt: new Date().toISOString(), synced: false,
+        } as Pin
         await savePin(updatedPin)
-        setPins((prev) => prev.map((p) => (p.id === editingPin.id ? updatedPin : p)))
+        setCachedPins((prev) => prev.map((p) => (p.id === editingPin.id ? updatedPin : p)))
       } else {
         // Create new pin
         const createPinData: CreatePinInput = {
@@ -443,7 +463,7 @@ export function MapPage() {
         }
         const newPin = createPin(createPinData, currentUser.uid, currentUser.officeId)
         await savePin(newPin)
-        setPins((prev) => [...prev, newPin])
+        setCachedPins((prev) => [...prev, newPin])
       }
       await loadPins()
       setIsModalOpen(false)
@@ -464,7 +484,7 @@ export function MapPage() {
       await savePin({ ...pinToDelete, synced: false } as Pin)
     }
     // For now just remove locally
-    setPins((prev) => prev.filter((p) => p.id !== id))
+    setCachedPins((prev) => prev.filter((p) => p.id !== id))
     await deletePinFromStorage(id)
     await loadPins()
   }
@@ -640,6 +660,11 @@ export function MapPage() {
         </div>
       </div>
 
+      {leadsNeedingLocation > 0 && <div className="map-page__lead-review" role="status">
+        <span>{leadsNeedingLocation} {leadsNeedingLocation === 1 ? 'lead needs' : 'leads need'} a location before appearing as a map pin.</span>
+        <a href="/calls">Review in Call centre</a>
+      </div>}
+
       {/* Map Container */}
       <div className="map-page__map-wrapper">
         <div className={`map-page__location-status map-page__location-status--${locationStatus}`} aria-live="polite">
@@ -711,9 +736,17 @@ export function MapPage() {
       <AddLeadModal
         isOpen={isAddLeadModalOpen}
         onClose={() => setIsAddLeadModalOpen(false)}
-        onCreated={() => {
+        onCreated={(pin) => {
           void loadPins()
-          setFeedback({ kind: 'success', message: 'Lead created' })
+          const record = migrateLeadRecord({ id: pin.id, leadId: pin.id, ...(pin.officeId ? { office: pin.officeId } : {}), leadName: pin.contactName || '', address: pin.address || '', phone: pin.contactPhone || '', notes: pin.notes || '', repName: currentUser.displayName || currentUser.email, pinId: pin.id, pinIds: [pin.id], latitude: pin.latitude, longitude: pin.longitude, pinOutcome: pin.outcome })
+          if (!leadRepository) {
+            setFeedback({ kind: 'success', message: 'Lead saved as a map pin. Configure Firebase to share it across workspaces.' })
+            return
+          }
+          void leadRepository.saveLeadRecord(record).then(() => setFeedback({ kind: 'success', message: 'Lead saved to the shared register' })).catch((error: unknown) => {
+            console.error('Failed to add lead to shared register:', error)
+            setFeedback({ kind: 'error', message: 'The map pin saved, but the shared lead register could not be updated.' })
+          })
         }}
         userId={currentUser.uid}
         officeId={currentUser.officeId}

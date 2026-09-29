@@ -27,6 +27,31 @@ function at(headers: string[], name: string) {
   return headers.findIndex((header) => header.trim().toLowerCase() === name.toLowerCase())
 }
 
+export function parseLeadCsv(text: string, office?: LeadOffice): ImportResult {
+  const rows = csvToArray(text)
+  const headers = rows.shift()?.map((header) => header.trim()) || []
+  const records: LeadRecord[] = []
+  let skipped = 0
+  for (const cells of rows) {
+    const get = (name: string) => {
+      const index = at(headers, name)
+      return index >= 0 ? cells[index] || '' : ''
+    }
+    if (!get('Lead Name').trim() && !get('Address').trim()) {
+      skipped++
+      continue
+    }
+    records.push(migrateLeadRecord({
+      id: id(), date: get('Date'), leadName: get('Lead Name'), address: get('Address'), phone: get('Contact Number'), notes: get('Notes'),
+      updateLead: get('Update Lead').toLowerCase() === 'true', renterOwner: get('Renter/Owner'), superannuation: get('Superannuation'), repName: get('Rep Name'),
+      leadStatus: get('Lead Status'), callTimestamp: get('Call Timestamp'), callResult: get('Call Result'), leadId: get('LeadID'),
+      qualification: (get('Qualification') || undefined) as LeadRecord['qualification'], office: office || (get('Office') || undefined) as LeadOffice | undefined, followUpDate: get('Follow-up Date') || undefined,
+      timelySynced: get('Timely CRM').toLowerCase() === 'true', timelySyncedAt: get('Timely CRM At') || undefined, timelySyncedBy: get('Timely CRM By') || undefined,
+    }))
+  }
+  return { records, skipped }
+}
+
 /** Retained localStorage adapter for legacy migration and CSV fallback; shared runtime data uses Firestore. */
 export function createLeadRegisterRepository(storage: Storage = localStorage) {
   return {
@@ -56,27 +81,7 @@ export function createLeadRegisterRepository(storage: Storage = localStorage) {
       return next
     },
     async importLeadCsv(text: string, office?: LeadOffice): Promise<ImportResult> {
-      const rows = csvToArray(text)
-      const headers = rows.shift()?.map((header) => header.trim()) || []
-      const records: LeadRecord[] = []
-      let skipped = 0
-      for (const cells of rows) {
-        const get = (name: string) => {
-          const index = at(headers, name)
-          return index >= 0 ? cells[index] || '' : ''
-        }
-        if (!get('Lead Name').trim() && !get('Address').trim()) {
-          skipped++
-          continue
-        }
-        records.push(migrateLeadRecord({
-          id: id(), date: get('Date'), leadName: get('Lead Name'), address: get('Address'), phone: get('Contact Number'), notes: get('Notes'),
-          updateLead: get('Update Lead').toLowerCase() === 'true', renterOwner: get('Renter/Owner'), superannuation: get('Superannuation'), repName: get('Rep Name'),
-          leadStatus: get('Lead Status'), callTimestamp: get('Call Timestamp'), callResult: get('Call Result'), leadId: get('LeadID'),
-          qualification: (get('Qualification') || undefined) as LeadRecord['qualification'], office: office || (get('Office') || undefined) as LeadOffice | undefined, followUpDate: get('Follow-up Date') || undefined,
-          timelySynced: get('Timely CRM').toLowerCase() === 'true', timelySyncedAt: get('Timely CRM At') || undefined, timelySyncedBy: get('Timely CRM By') || undefined,
-        }))
-      }
+      const { records, skipped } = parseLeadCsv(text, office)
       const combined = read(storage)
       for (const imported of records) {
         const importedAddress = imported.address.trim().toLowerCase()

@@ -151,18 +151,18 @@
 - Modify: `src/pages/MapPage.tsx`
 - Test: `src/pages/MapPage.test.tsx`
 - Modify: `src/domain/pinStorage.ts`
-- Test: `src/domain/leadRegisterRepository.test.ts`
+- Test: `src/domain/pinStorage.test.ts`, `src/domain/leadMapProjection.test.ts`, `src/domain/leadRegisterRepository.test.ts`
 
 **Interfaces:**
 - Both pages consume the same Firestore lead repository and realtime subscription.
 - Map view projects records with valid coordinates to existing map pins; records without coordinates remain in the contact/import register with an explicit geocode/review state.
 - Preserve the existing map pin offline queue and `/map`, `/calls`, `/admin/import` URLs.
 
-- [ ] Add cross-view tests showing one imported lead and subsequent activity/Timely/map updates reflected by the relevant views, plus non-geocoded lead retention and offline recovery.
-- [ ] Run page/repository tests; confirm new cases fail before implementation.
-- [ ] Cut over page reads/writes and pin projection; keep the migration source available until post-deploy sample/count verification.
-- [ ] Run page tests and `npm run build`; expect PASS.
-- [ ] Commit as `feat: share leads across map and contact workspaces`.
+- [x] Add cross-view coverage for shared lead subscriptions, activity and Timely writes, map projection/non-geocoded retention, linked-pin offline reconciliation, and duplicate import identities.
+- [x] Run targeted page/repository tests; confirmed the linked-pin projection and duplicate-import regression tests fail before implementation.
+- [x] Cut over page reads/writes and pin projection; preserve the migration source until post-deploy sample/count verification.
+- [x] Run the complete test suite, Firestore rules suite, lint, and production build; all functional checks pass (lint/build retain existing warnings noted in delivery report).
+- [x] Commit as `feat: share leads across map and contact workspaces`.
 
 ### Task 8: Validate sync and migration end-to-end
 

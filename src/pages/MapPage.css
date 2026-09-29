@@ -84,6 +84,25 @@
   animation: map-page-hint-slide-down var(--asg-transition-base) ease-out;
 }
 
+.map-page__lead-review {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--asg-space-3);
+  padding: var(--asg-space-3) var(--asg-space-6);
+  background: var(--asg-color-gold-100);
+  border-bottom: 1px solid var(--asg-color-gold-300);
+  color: var(--asg-color-navy-900);
+  font-size: var(--asg-text-body-sm);
+}
+
+.map-page__lead-review a {
+  color: var(--asg-color-navy-900);
+  font-weight: 700;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
 @keyframes map-page-hint-slide-down {
   from {
     opacity: 0;

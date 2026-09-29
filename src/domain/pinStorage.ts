@@ -1,8 +1,11 @@
 import type { Pin, PinFilters } from './pin'
-import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
+import { arrayUnion, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
 import { getFirebaseApp } from '../firebase/app'
 import { isFirebaseConfigured } from '../firebase/config'
 import { getFirestoreDb } from '../firebase/firestore'
+import { migrateLeadRecord } from './leadRegister'
+import { PinOutcome } from './pinOutcome'
+import { mergeCachedAndRemotePins } from './leadMapProjection'
 
 const DB_NAME = 'asg-leads-map'
 const DB_VERSION = 1
@@ -12,7 +15,7 @@ function remoteStorageEnabled(): boolean {
   return isFirebaseConfigured() && (!import.meta.env.DEV || import.meta.env['VITE_USE_DEV_AUTH'] === 'false')
 }
 
-async function remoteContext(): Promise<{ uid: string; officeId: 'perth' | 'brisbane' } | null> {
+async function remoteContext(): Promise<{ uid: string; officeId: 'perth' | 'brisbane'; displayName: string } | null> {
   if (!remoteStorageEnabled()) return null
   const { getAuth } = await import('firebase/auth')
   const user = getAuth(getFirebaseApp()).currentUser
@@ -20,7 +23,7 @@ async function remoteContext(): Promise<{ uid: string; officeId: 'perth' | 'bris
   const profile = await getDoc(doc(getFirestoreDb(), 'users', user.uid))
   const officeId = profile.data()?.['officeId']
   if (officeId !== 'perth' && officeId !== 'brisbane') return null
-  return { uid: user.uid, officeId }
+  return { uid: user.uid, officeId, displayName: String(profile.data()?.['displayName'] || user.displayName || user.email || user.uid) }
 }
 
 async function saveRemotePin(pin: Pin): Promise<boolean> {
@@ -31,6 +34,55 @@ async function saveRemotePin(pin: Pin): Promise<boolean> {
     officeId: context.officeId,
   })
   return true
+}
+
+export function getLeadSyncTarget(pin: Pin): { id: string; createIfMissing: boolean } | null {
+  if (pin.linkedLeadId) return { id: pin.linkedLeadId, createIfMissing: false }
+  if (pin.outcome === PinOutcome.Lead && (pin.source === 'manual' || pin.source === 'jotform')) {
+    return { id: pin.id, createIfMissing: true }
+  }
+  return null
+}
+
+async function saveLeadFromPin(pin: Pin): Promise<void> {
+  const target = getLeadSyncTarget(pin)
+  if (!target) return
+  const context = await remoteContext()
+  if (!context || pin.officeId !== context.officeId) return
+  const db = getFirestoreDb()
+  const reference = doc(db, 'leads', target.id)
+  const existing = await getDoc(reference)
+  if (existing.exists()) {
+    await updateDoc(reference, {
+      pinId: pin.id,
+      pinIds: arrayUnion(pin.id),
+      latitude: pin.latitude,
+      longitude: pin.longitude,
+      pinOutcome: pin.outcome,
+      address: pin.address || '',
+      notes: pin.notes || '',
+      leadName: pin.contactName || '',
+      phone: pin.contactPhone || '',
+      updatedAt: serverTimestamp(),
+    })
+    return
+  }
+  if (!target.createIfMissing) return
+
+  const record = migrateLeadRecord({
+    id: target.id, leadId: pin.externalId || target.id, office: context.officeId,
+    date: pin.createdAt.slice(0, 10), leadName: pin.contactName || '', address: pin.address || '',
+    phone: pin.contactPhone || '', notes: pin.notes || '', repName: context.displayName,
+    pinId: pin.id, pinIds: [pin.id], latitude: pin.latitude, longitude: pin.longitude,
+    pinOutcome: pin.outcome, leadStatus: 'New', qualification: 'new',
+  })
+  const { id: _id, office: _office, source: _source, ...fields } = record
+  await setDoc(reference, {
+    ...Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)),
+    officeId: context.officeId,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true })
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -74,6 +126,7 @@ export async function savePin(pin: Pin): Promise<void> {
   await withTransaction('readwrite', (store) => store.put(pin))
   try {
     if (await saveRemotePin(pin)) {
+      await saveLeadFromPin(pin)
       await markLocalPinSynced(pin.id)
     }
   } catch {
@@ -107,9 +160,7 @@ export async function getAllPins(): Promise<Pin[]> {
     if (!context) return localPins
     const snapshot = await getDocs(query(collection(getFirestoreDb(), 'pins'), where('officeId', '==', context.officeId)))
     const remotePins = snapshot.docs.map((item) => item.data() as Pin)
-    const merged = new Map(localPins.map((pin) => [pin.id, pin]))
-    remotePins.forEach((pin) => merged.set(pin.id, { ...pin, synced: true, syncAttempts: 0 }))
-    const result = [...merged.values()]
+    const result = mergeCachedAndRemotePins(localPins, remotePins)
     await savePinsLocal(result)
     return result
   } catch {
@@ -143,6 +194,7 @@ export async function syncPendingPins(): Promise<{ synced: number; failed: numbe
   for (const pin of pending) {
     try {
       if (await saveRemotePin(pin)) {
+        await saveLeadFromPin(pin)
         await markLocalPinSynced(pin.id)
         synced += 1
       }
