@@ -15,7 +15,7 @@ export const googleSheetSources: GoogleSheetSource[] = [
 ]
 
 export async function fetchGoogleSheetCsv(source: GoogleSheetSource, token: string, fetcher: typeof fetch = fetch) {
-  const response = await fetcher(`/api/integrations/google-sheets?office=${source.office}`, {
+  const response = await fetcher(`/api/leads?office=${source.office}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   const body = await response.json() as { values?: string[][]; error?: string }
