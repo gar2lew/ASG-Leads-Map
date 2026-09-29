@@ -49,7 +49,7 @@ async function getSheetsAccessToken() {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' })
   const office = typeof req.query.office === 'string' ? req.query.office : ''
-  if (!Object.hasOwn(SHEETS, office)) return res.status(400).json({ error: 'Select Perth or Brisbane.' })
+  if (!Object.prototype.hasOwnProperty.call(SHEETS, office)) return res.status(400).json({ error: 'Select Perth or Brisbane.' })
 
   const authorization = req.headers.authorization
   if (!authorization?.startsWith('Bearer ')) return res.status(401).json({ error: 'Sign in to import a register.' })
