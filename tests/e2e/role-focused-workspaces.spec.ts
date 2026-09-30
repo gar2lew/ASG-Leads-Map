@@ -138,19 +138,63 @@ for (const width of [320, 375, 390, 1280]) {
   })
 }
 
-test('theme toggle applies readable semantic colors without reload', async ({ page }) => {
-  await page.goto('/map')
-  await expect(page.getByRole('button', { name: 'Toggle theme' })).toBeVisible()
-  await page.getByRole('button', { name: 'Toggle theme' }).click()
+function rgbChannels(cssColor: string): [number, number, number] {
+  const hex = /^#([\da-f]{6})$/i.exec(cssColor.trim())
+  if (hex?.[1]) {
+    return [0, 2, 4].map((offset) => Number.parseInt(hex[1].slice(offset, offset + 2), 16)) as [number, number, number]
+  }
+  const rgb = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i.exec(cssColor.trim())
+  if (!rgb?.[1] || !rgb[2] || !rgb[3]) throw new Error(`Unsupported computed color: ${cssColor}`)
+  return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])]
+}
 
-  const theme = await page.evaluate(() => ({
-    name: document.documentElement.dataset.theme,
-    text: document.documentElement.style.getPropertyValue('--asg-theme-text'),
-    canvas: document.documentElement.style.getPropertyValue('--asg-theme-canvas'),
-    secondary: document.documentElement.style.getPropertyValue('--asg-theme-text-secondary'),
-  }))
-  expect(theme.name).toBe('dark')
-  expect(theme.text).toBe('#ffffff')
-  expect(theme.canvas).toBe('#07111d')
-  expect(theme.secondary).toBe('#e6edf5')
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (color: string) => {
+    const [red, green, blue] = rgbChannels(color).map((channel) => channel / 255)
+    const linear = (channel: number) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+    return 0.2126 * linear(red!) + 0.7152 * linear(green!) + 0.0722 * linear(blue!)
+  }
+  const foregroundLuminance = luminance(foreground)
+  const backgroundLuminance = luminance(background)
+  return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+    (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+}
+
+function canonicalRgb(color: string): string {
+  return rgbChannels(color).join(',')
+}
+
+test('theme toggle applies readable semantic colors without reload', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('asg-theme', 'light'))
+  await page.goto('/calls')
+  await page.getByRole('button', { name: 'Open capture' }).click()
+  await expect(page.getByRole('button', { name: 'Toggle theme' })).toBeVisible()
+  const leadNameLabel = page.locator('.call-centre-capture__form label').filter({ has: page.getByLabel('Lead name') })
+  await expect(leadNameLabel).toBeVisible()
+
+  const expectReadableSemanticLabel = async (expectedTheme: 'light' | 'dark') => {
+    const rendered = await page.evaluate(() => {
+      const label = [...document.querySelectorAll('.call-centre-capture__form label')]
+        .find((item) => item.textContent?.trim().startsWith('Lead name'))
+      const surface = document.querySelector('.call-centre-capture')
+      if (!label || !surface) throw new Error('Lead name label or capture surface is missing')
+      const rootStyle = getComputedStyle(document.documentElement)
+      return {
+        theme: document.documentElement.dataset.theme,
+        foreground: getComputedStyle(label).color,
+        semanticForeground: rootStyle.getPropertyValue('--asg-theme-text-secondary').trim(),
+        background: getComputedStyle(surface).backgroundColor,
+        semanticBackground: rootStyle.getPropertyValue('--asg-theme-surface').trim(),
+      }
+    })
+    expect(rendered.theme).toBe(expectedTheme)
+    const ratio = contrastRatio(rendered.foreground, rendered.background)
+    expect(ratio, `${expectedTheme} Lead name contrast: ${rendered.foreground} on ${rendered.background} (${ratio.toFixed(2)}:1)`).toBeGreaterThanOrEqual(4.5)
+    expect(canonicalRgb(rendered.foreground)).toBe(canonicalRgb(rendered.semanticForeground))
+    expect(canonicalRgb(rendered.background)).toBe(canonicalRgb(rendered.semanticBackground))
+  }
+
+  await expectReadableSemanticLabel('light')
+  await page.getByRole('button', { name: 'Toggle theme' }).click()
+  await expectReadableSemanticLabel('dark')
 })

@@ -29,6 +29,8 @@
 .call-centre-capture__modes button.is-active { border-color: var(--asg-color-gold-500); background: color-mix(in srgb, var(--asg-color-gold-500) 18%, transparent); color: var(--color-text); }
 .call-centre-capture__form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; }
 .call-centre-capture__form label { display: grid; gap: .35rem; color: var(--color-text-secondary); font-size: .76rem; font-weight: 700; }
+[data-theme="dark"] .call-centre-capture__form label,
+[data-theme="high-contrast"] .call-centre-capture__form label { color: var(--asg-theme-text-secondary) !important; }
 .call-centre-capture__form input, .call-centre-capture__form select, .call-centre-capture__form textarea, .call-centre-register__filters input, .call-centre-register__filters select { width: 100%; min-height: 2.65rem; padding: .65rem .75rem; border: 1px solid var(--color-border); border-radius: .55rem; background: var(--color-bg); color: var(--color-text); font: inherit; }
 .call-centre-capture__form textarea { resize: vertical; }
 .call-centre-capture__wide { grid-column: 1 / -1; }
