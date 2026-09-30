@@ -1478,11 +1478,18 @@ describe('MapPage - shared map interactions', () => {
       phone: '0412 345 678', notes: '', date: '2026-09-30', callTimestamp: '2026-09-30T10:00', callResult: '',
       updateLead: false, renterOwner: 'Owner', superannuation: '$75-150k', repName: 'Pat Rep', leadStatus: 'New',
       office: 'perth', pinId: 'pin-for-lead', latitude: -31.95, longitude: 115.86, pinOutcome: 'lead',
-      qualification: 'new', timelySynced: false, activities: [],
+      qualification: 'qualified', timelySynced: false, activities: [{
+        id: 'latest-call', leadId: 'shared-lead-1', kind: 'call', occurredAt: '2026-09-30T10:00:00.000Z',
+        repName: 'Pat Rep', outcome: 'Callback booked', notes: 'Call again Friday morning.',
+      }],
     })
     render(<MemoryRouter initialEntries={['/map?leadId=shared-lead-1']}><MapPage /></MemoryRouter>)
 
-    expect(await screen.findByRole('complementary', { name: /property details/i })).toHaveTextContent('9 Swan Street, Perth WA 6000')
+    const sheet = await screen.findByRole('complementary', { name: /property details/i })
+    expect(sheet).toHaveTextContent('9 Swan Street, Perth WA 6000')
+    expect(sheet).toHaveTextContent('Qualified')
+    expect(sheet).toHaveTextContent('Callback booked')
+    expect(sheet).toHaveTextContent('Call again Friday morning.')
     expect(getMapInstance().easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [115.86, -31.95] }))
   })
 
@@ -1548,6 +1555,7 @@ describe('MapPage - shared map interactions', () => {
     await user.click(screen.getByRole('button', { name: /save changes/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/pin outcome saved, but the shared activity could not be confirmed/i)
+    expect(within(screen.getByRole('complementary', { name: /property details/i })).getByRole('status')).toHaveTextContent(/activity sync pending/i)
     await user.click(screen.getByRole('button', { name: /save changes/i }))
     await waitFor(() => expect(mockAddLeadActivity).toHaveBeenCalledTimes(2))
     expect(mockAddLeadActivity.mock.calls[1]?.[1].id).toBe(mockAddLeadActivity.mock.calls[0]?.[1].id)

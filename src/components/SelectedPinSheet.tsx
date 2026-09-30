@@ -1,17 +1,24 @@
+import type { LeadRecord } from '../domain/leadRegister'
 import type { Pin } from '../domain'
 import { pinOutcomeLabel } from '../domain'
 import './SelectedPinSheet.css'
 
 interface SelectedPinSheetProps {
   pin: Pin
+  leadRecord?: LeadRecord | undefined
   onUpdateOutcome: () => void
   onEdit: () => void
   onDelete: () => void
   onClose: () => void
 }
 
-export function SelectedPinSheet({ pin, onUpdateOutcome, onEdit, onDelete, onClose }: SelectedPinSheetProps) {
+export function SelectedPinSheet({ pin, leadRecord, onUpdateOutcome, onEdit, onDelete, onClose }: SelectedPinSheetProps) {
   const hasContact = Boolean(pin.contactName || pin.contactPhone || pin.contactEmail)
+  const latestActivity = leadRecord?.activities
+    .slice()
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))[0]
+  const qualificationLabel = leadRecord?.qualification.replaceAll('_', ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase())
 
   return (
     <aside className={`selected-pin-sheet surface--light property-details property-details--${pin.outcome}`} aria-label="Property details">
@@ -29,9 +36,27 @@ export function SelectedPinSheet({ pin, onUpdateOutcome, onEdit, onDelete, onClo
         <span className="property-details__outcome">
           {pinOutcomeLabel(pin.outcome)}
         </span>
+        {qualificationLabel && <span className={`property-details__qualification property-details__qualification--${leadRecord?.qualification}`}>
+          {qualificationLabel}
+        </span>}
         <span className="property-details__eyebrow">Property details</span>
         <h2 className="property-details__address">{pin.address || 'Unknown property'}</h2>
+        {leadRecord?.leadName && leadRecord.leadName !== pin.contactName && <p className="property-details__lead-name">{leadRecord.leadName}</p>}
       </header>
+      {pin.pendingLeadActivity && <p className="property-details__sync-state" role="status">
+        Activity sync pending <span>Saved on this device; retry with Sync when connected.</span>
+      </p>}
+      {latestActivity && (
+        <section className="property-details__section property-details__latest-activity" aria-labelledby="latest-activity-heading">
+          <h3 id="latest-activity-heading">Latest activity</h3>
+          <div className="property-details__activity-heading">
+            <strong>{latestActivity.outcome || (latestActivity.kind === 'call' ? 'Call logged' : 'Door knock logged')}</strong>
+            <time dateTime={latestActivity.occurredAt}>{new Date(latestActivity.occurredAt).toLocaleDateString('en-AU')}</time>
+          </div>
+          <p>{latestActivity.notes || 'No notes recorded.'}</p>
+          <span className="property-details__activity-rep">{latestActivity.repName}</span>
+        </section>
+      )}
       <section className="property-details__section" aria-labelledby="visit-details-heading">
         <h3 id="visit-details-heading">Visit details</h3>
         <dl className="property-details__facts">

@@ -694,3 +694,22 @@
   .outcome-chip { min-height: 44px; }
   .map-page__map .maplibregl-ctrl-group button { width: 44px; height: 44px; }
 }
+
+/* Field workspace surfaces follow the selected app theme across the full map shell. */
+.map-page { color: var(--asg-theme-text); background: var(--asg-theme-canvas); }
+.map-page__header { background: var(--asg-theme-surface); border-color: var(--asg-theme-border); }
+.map-page__title { color: var(--asg-theme-text); font-family: var(--asg-font-sans); font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 750; letter-spacing: -0.04em; }
+.map-page__title::before { color: var(--asg-theme-action); }
+.map-page__subtitle { color: var(--asg-theme-text-secondary); }
+.map-page__filter-bar { background: var(--asg-theme-surface); border-color: var(--asg-theme-border); }
+.map-page__filter-label { color: var(--asg-theme-text-muted); }
+.map-page__filter-bar .form-input { color: var(--asg-theme-text); background: var(--asg-theme-surface-raised); border-color: var(--asg-theme-border); }
+.map-page__filter-bar .form-input::placeholder { color: var(--asg-theme-placeholder); }
+.map-page__filter-bar .form-input:focus { border-color: var(--asg-theme-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--asg-theme-focus) 25%, transparent); }
+.outcome-chip { color: var(--asg-theme-text-secondary); background: var(--asg-theme-surface-raised); border-color: var(--asg-theme-border); }
+.outcome-chip:hover, .outcome-chip--selected { color: var(--asg-theme-text); background: color-mix(in srgb, var(--asg-theme-action) 12%, var(--asg-theme-surface-raised)); border-color: var(--asg-theme-action); }
+.toolbar__count { color: var(--asg-theme-text-secondary); background: var(--asg-theme-surface-raised); border: 1px solid var(--asg-theme-border); }
+.map-page__lead-review { color: var(--asg-theme-text); background: color-mix(in srgb, var(--asg-theme-warning) 12%, var(--asg-theme-surface)); border-color: var(--asg-theme-border); }
+.map-page__lead-review a { color: var(--asg-theme-action); }
+.map-page__location-status { color: var(--asg-theme-text-secondary); background: color-mix(in srgb, var(--asg-theme-surface-raised) 94%, transparent); border-color: var(--asg-theme-border); }
+.map-page__map-wrapper { border-color: var(--asg-theme-border); }

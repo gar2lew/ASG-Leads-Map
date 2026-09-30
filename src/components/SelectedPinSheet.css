@@ -48,6 +48,40 @@
 .property-details__danger { min-height: 44px; margin-top: var(--asg-space-3); color: var(--asg-color-error-text); background: transparent; border: 0; border-radius: var(--asg-radius-lg); cursor: pointer; font: 600 var(--asg-text-body-sm) var(--asg-font-sans); }
 .property-details__danger:hover { background: var(--asg-color-error-bg); }
 
+/* Field workspace detail: use the active semantic theme, not light-only legacy aliases. */
+.selected-pin-sheet {
+  width: min(390px, calc(100% - 2rem));
+  color: var(--asg-theme-text);
+  background: color-mix(in srgb, var(--asg-theme-surface-raised) 96%, transparent);
+  border-color: var(--asg-theme-border);
+  box-shadow: 0 24px 64px rgba(7, 17, 29, 0.24);
+}
+.property-details__close { color: var(--asg-theme-text-muted); }
+.property-details__close:hover { color: var(--asg-theme-text); background: color-mix(in srgb, var(--asg-theme-action) 14%, var(--asg-theme-surface)); }
+.property-details__outcome { color: var(--asg-theme-text); }
+.property-details__address { font-family: var(--asg-font-sans); font-size: clamp(1.4rem, 2vw, 1.8rem); font-weight: 700; letter-spacing: -0.025em; }
+.property-details__lead-name { margin: var(--asg-space-1) 0 0; color: var(--asg-theme-text-secondary); }
+.property-details__section { border-color: var(--asg-theme-border); }
+.property-details__section h3 { color: var(--asg-theme-text-muted); }
+.property-details__section p { color: var(--asg-theme-text-secondary); }
+.property-details__facts dt { color: var(--asg-theme-text-muted); }
+.property-details__facts dd { color: var(--asg-theme-text); }
+.property-details__contact a { color: var(--asg-theme-action); }
+.property-details__qualification { display: inline-flex; margin-left: var(--asg-space-2); padding: var(--asg-space-1) var(--asg-space-3); color: var(--asg-theme-text-secondary); background: var(--asg-theme-surface); border: 1px solid var(--asg-theme-border); border-radius: var(--asg-radius-full); font-size: var(--asg-text-caption); font-weight: 700; text-transform: capitalize; vertical-align: middle; }
+.property-details__qualification--qualified { color: var(--asg-theme-success); }
+.property-details__qualification--callback { color: var(--asg-theme-warning); }
+.property-details__qualification--not_interested { color: var(--asg-theme-danger); }
+.property-details__sync-state { display: grid; gap: var(--asg-space-1); margin: var(--asg-space-4) 0 0; padding: var(--asg-space-3) var(--asg-space-4); color: var(--asg-theme-warning); background: color-mix(in srgb, var(--asg-theme-warning) 10%, var(--asg-theme-surface)); border: 1px solid color-mix(in srgb, var(--asg-theme-warning) 35%, var(--asg-theme-border)); border-radius: var(--asg-radius-lg); font-size: var(--asg-text-body-sm); font-weight: 700; }
+.property-details__sync-state span { color: var(--asg-theme-text-secondary); font-size: var(--asg-text-caption); font-weight: 500; }
+.property-details__activity-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--asg-space-3); color: var(--asg-theme-text); }
+.property-details__activity-heading time, .property-details__activity-rep { color: var(--asg-theme-text-muted); font-size: var(--asg-text-caption); }
+.property-details__activity-rep { display: block; margin-top: var(--asg-space-2); }
+.property-details__actions .btn { min-height: 48px; }
+
+@media (max-width: 900px), (pointer: coarse) {
+  .selected-pin-sheet { max-height: min(68dvh, 620px); }
+}
+
 @media (max-width: 900px), (pointer: coarse) {
   .selected-pin-sheet { top: auto; right: var(--asg-space-3); bottom: var(--asg-space-3); left: var(--asg-space-3); width: auto; max-height: min(70vh, 620px); padding: var(--asg-space-6) var(--asg-space-5) calc(var(--asg-space-5) + env(safe-area-inset-bottom)); border-radius: var(--asg-radius-3xl) var(--asg-radius-3xl) var(--asg-radius-xl) var(--asg-radius-xl); }
   .property-details__handle { display: block; width: 42px; height: 4px; margin: calc(var(--asg-space-3) * -1) auto var(--asg-space-4); background: var(--asg-color-surface-400); border-radius: var(--asg-radius-full); }
