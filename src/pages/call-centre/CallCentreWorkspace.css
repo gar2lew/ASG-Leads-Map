@@ -1,6 +1,19 @@
 .call-centre-workspace { display: grid; gap: 1.25rem; }
 .call-centre-kicker { margin: 0 0 .25rem; color: var(--asg-color-gold-500); font-size: .68rem; font-weight: 800; letter-spacing: .14em; }
-.call-centre-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .7rem; }
+.call-centre-summary { display: grid; gap: .65rem; }
+.call-centre-summary__queues { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .1rem; }
+.call-centre-summary__queues button { display: flex; flex: 1 0 auto; align-items: center; justify-content: space-between; gap: .85rem; min-height: 2.75rem; padding: .55rem .75rem; border: 1px solid var(--color-border); border-radius: .75rem; background: var(--color-bg-elevated); color: var(--color-text-secondary); font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; }
+.call-centre-summary__queues button strong { display: grid; min-width: 1.55rem; height: 1.55rem; place-items: center; border-radius: 999px; background: var(--color-bg); color: var(--color-text); font-size: .76rem; }
+.call-centre-summary__queues button.is-active { border-color: var(--asg-color-gold-500); background: color-mix(in srgb, var(--asg-color-gold-500) 10%, var(--color-bg-elevated)); color: var(--color-text); }
+.call-centre-summary__queues button.is-active strong { background: var(--asg-color-gold-500); color: var(--asg-color-surface-900); }
+.call-centre-summary__activity { display: flex; gap: 1rem; color: var(--color-text-muted); font-size: .73rem; }
+.call-centre-summary__activity strong { color: var(--color-text); }
+.call-centre-quick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.call-centre-quick-actions > span { margin-right: .35rem; color: var(--color-text-muted); font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; }
+.call-centre-workspace__body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(22rem, .9fr); align-items: start; gap: 1rem; }
+.call-centre-detail-empty { padding: 1.5rem; border: 1px dashed var(--color-border); border-radius: 1rem; background: var(--color-bg-elevated); }
+.call-centre-detail-empty h2 { margin: 0; color: var(--color-text); font-size: 1.1rem; }
+.call-centre-detail-empty p { margin: .4rem 0 0; color: var(--color-text-secondary); font-size: .82rem; }
 .call-centre-metric, .call-centre-capture, .call-centre-register { border: 1px solid var(--color-border); border-radius: 1rem; background: var(--color-bg-elevated); box-shadow: 0 14px 34px color-mix(in srgb, var(--asg-color-surface-900) 18%, transparent); }
 .call-centre-metric { padding: .85rem 1rem; }
 .call-centre-metric span { color: var(--asg-color-gold-500); font-size: .62rem; font-weight: 800; letter-spacing: .1em; }
@@ -35,6 +48,11 @@
 .lead-card__header > div { justify-content: flex-start; min-width: 0; }
 .lead-card__initials { display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; place-items: center; border-radius: .65rem; background: color-mix(in srgb, var(--asg-color-gold-500) 18%, transparent); color: var(--asg-color-gold-500); font-weight: 800; }
 .lead-card h3 { margin: 0; color: var(--color-text); font-size: .95rem; }
+.lead-card__select { padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.lead-card__select:focus-visible { outline: 2px solid var(--asg-theme-focus, var(--asg-color-gold-500)); outline-offset: 2px; border-radius: .15rem; }
+.lead-card__badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; }
+.lead-chip--review { background: color-mix(in srgb, var(--asg-color-warning-500) 14%, var(--color-bg)); color: var(--color-text-secondary); }
+.lead-card.is-selected { border-color: var(--asg-color-gold-500); box-shadow: 0 0 0 1px color-mix(in srgb, var(--asg-color-gold-500) 42%, transparent); }
 .lead-card p { margin: .15rem 0 0; overflow: hidden; color: var(--color-text-secondary); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
 .lead-chip { padding: .25rem .45rem; border-radius: .45rem; background: var(--color-bg-hover); color: var(--color-text-secondary); font-size: .65rem; font-weight: 800; text-transform: uppercase; }
 .lead-chip--qualified, .lead-chip--callback { color: var(--asg-color-success-500); }
@@ -46,5 +64,5 @@
 .lead-card__actions a { color: var(--asg-color-gold-500); font-weight: 800; text-decoration: none; }
 .lead-card__actions a:hover { text-decoration: underline; }
 .call-centre-empty { margin: 0; padding: 2.5rem 1rem; color: var(--color-text-secondary); text-align: center; }
-@media (max-width: 900px) { .call-centre-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } .call-centre-capture__form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .call-centre-register__header { flex-direction: column; } .call-centre-register__filters { max-width: none; justify-content: stretch; width: 100%; } .call-centre-register__filters input { flex: 1 1 100%; width: auto; } }
-@media (max-width: 560px) { .call-centre-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .call-centre-capture__form { grid-template-columns: 1fr; } .call-centre-capture__wide { grid-column: auto; } .call-centre-capture__submit { width: 100%; } .lead-card__meta, .lead-card__footer { align-items: flex-start; flex-direction: column; } .call-centre-register__filters select { flex: 1; min-width: 0; } }
+@media (max-width: 900px) { .call-centre-workspace__body { grid-template-columns: 1fr; } .call-centre-summary__queues { flex-wrap: wrap; overflow: visible; } .call-centre-summary__queues button { flex: 1 1 calc(50% - .5rem); } .call-centre-capture__form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .call-centre-register__header { flex-direction: column; } .call-centre-register__filters { max-width: none; justify-content: stretch; width: 100%; } .call-centre-register__filters input { flex: 1 1 100%; width: auto; } }
+@media (max-width: 560px) { .call-centre-capture__form { grid-template-columns: 1fr; } .call-centre-capture__wide { grid-column: auto; } .call-centre-capture__submit { width: 100%; } .lead-card__meta, .lead-card__footer { align-items: flex-start; flex-direction: column; } .call-centre-register__filters select { flex: 1; min-width: 0; } .call-centre-summary__queues { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .call-centre-summary__queues button { min-width: 0; } .call-centre-workspace__body > .call-centre-register .lead-card:not(.is-selected) { display: none; } .call-centre-quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .call-centre-quick-actions > span { grid-column: 1 / -1; } .call-centre-capture__heading-actions { display: grid; justify-items: end; gap: .4rem; } }

@@ -12,6 +12,8 @@ import { syncSheetNow } from '../integrations/sheetSync'
 import { googleSheetSources } from '../integrations/googleSheets'
 import { getFirestoreDb } from '../firebase/firestore'
 import { isFirebaseConfigured } from '../firebase/config'
+import { filterCallerQueue, type CallQueueView } from '../domain/callQueue'
+import { LeadDetailPanel } from './call-centre/LeadDetailPanel'
 
 function isOffice(value: unknown): value is LeadOffice { return value === 'perth' || value === 'brisbane' }
 
@@ -23,6 +25,9 @@ export function CallLogPage() {
   const [mode, setMode] = useState<CaptureMode>('lead')
   const [draft, setDraft] = useState(() => migrateLeadRecord({ id: crypto.randomUUID(), repName: user.displayName || user.email }))
   const [filters, setFilters] = useState<LeadFilters>({ status: 'all', rep: 'all', timely: 'all', office: 'all' })
+  const [queueView, setQueueView] = useState<CallQueueView>('all')
+  const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null)
+  const [captureOpen, setCaptureOpen] = useState(false)
   const [importMessage, setImportMessage] = useState('')
   const [sheetImporting, setSheetImporting] = useState<LeadOffice | null>(null)
 
@@ -34,29 +39,43 @@ export function CallLogPage() {
     return repository.subscribeLeadRecords(setRecords, (error) => setImportMessage(error.message))
   }, [localRepository, repository])
   const visible = useMemo(() => filterLeadRecords(records, filters, new Date().toISOString().slice(0, 10)), [records, filters])
+  const queueRecords = useMemo(() => filterCallerQueue(visible, queueView), [visible, queueView])
+  const selectedRecord = queueRecords.find((record) => record.id === selectedRecordId) ?? queueRecords[0] ?? null
+  const selectedIndex = selectedRecord ? queueRecords.findIndex((record) => record.id === selectedRecord.id) : -1
 
   function updateDraft(key: keyof LeadRecord, value: string | boolean) { setDraft((current) => ({ ...current, [key]: value })) }
+
+  function activityFromCapture(next: LeadRecord, captureMode: Exclude<CaptureMode, 'lead'>) {
+    return { id: crypto.randomUUID(), leadId: next.id, kind: captureMode, occurredAt: next.callTimestamp, repName: next.repName || user.displayName || user.email, outcome: next.callResult, notes: next.notes, followUpDate: next.followUpDate }
+  }
 
   async function saveCapture(next: LeadRecord, captureMode: CaptureMode) {
     try {
       if (!repository) {
-        const saved = captureMode === 'lead'
-          ? await localRepository.saveLeadRecords([...records, { ...next, office: next.office ?? user.officeId }])
-          : records.some((record) => record.id === next.id)
-            ? await localRepository.addLeadActivity(next.id, { id: crypto.randomUUID(), leadId: next.id, kind: captureMode, occurredAt: next.callTimestamp, repName: next.repName, outcome: next.callResult, notes: next.notes, followUpDate: next.followUpDate })
-            : await localRepository.saveLeadRecords([...records, { ...next, office: next.office ?? user.officeId }])
+        let saved: LeadRecord[]
+        if (captureMode === 'lead') {
+          saved = await localRepository.saveLeadRecords([...records, { ...next, office: next.office ?? user.officeId }])
+        } else if (records.some((record) => record.id === next.id)) {
+          saved = await localRepository.addLeadActivity(next.id, activityFromCapture(next, captureMode))
+        } else {
+          await localRepository.saveLeadRecords([...records, { ...next, office: next.office ?? user.officeId }])
+          saved = await localRepository.addLeadActivity(next.id, activityFromCapture(next, captureMode))
+        }
         setRecords(saved)
       } else if (captureMode === 'lead') {
         await repository.saveLeadRecord({ ...next, office: next.office ?? user.officeId })
       } else {
         const existing = records.find((record) => record.id === next.id)
         if (existing) {
-          const activity = { id: crypto.randomUUID(), leadId: existing.id, kind: captureMode, occurredAt: next.callTimestamp, repName: next.repName || user.displayName || user.email, outcome: next.callResult, notes: next.notes, followUpDate: next.followUpDate }
-          await repository.addLeadActivity(existing.id, activity)
-        } else await repository.saveLeadRecord({ ...next, office: next.office ?? user.officeId })
+          await repository.addLeadActivity(existing.id, activityFromCapture(next, captureMode))
+        } else {
+          await repository.saveLeadRecord({ ...next, office: next.office ?? user.officeId })
+          await repository.addLeadActivity(next.id, activityFromCapture(next, captureMode))
+        }
       }
       if (repository && next.timelySynced) await repository.setTimelyHandoff(next.id, true, user.displayName || user.email)
       setDraft(migrateLeadRecord({ id: crypto.randomUUID(), repName: user.displayName || user.email, office: user.officeId }))
+      setCaptureOpen(false)
     } catch (error) {
       setImportMessage(error instanceof Error ? error.message : 'Unable to save this lead activity.')
     }
@@ -74,7 +93,20 @@ export function CallLogPage() {
 
   function selectActivity(record: LeadRecord, captureMode: CaptureMode = 'call') {
     setDraft({ ...record, id: record.id, callTimestamp: new Date().toISOString().slice(0, 16) })
-    setMode(captureMode); window.scrollTo({ top: 0, behavior: 'smooth' })
+    setMode(captureMode); setSelectedRecordId(record.id); setCaptureOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function openCapture(captureMode: CaptureMode) {
+    setMode(captureMode)
+    setDraft(migrateLeadRecord({ id: crypto.randomUUID(), repName: user.displayName || user.email, office: user.officeId }))
+    setCaptureOpen(true)
+  }
+
+  function moveSelection(offset: number) {
+    if (selectedIndex < 0 || queueRecords.length < 2) return
+    const next = (selectedIndex + offset + queueRecords.length) % queueRecords.length
+    const record = queueRecords[next]
+    if (record) setSelectedRecordId(record.id)
   }
 
   async function importCsv(event: ChangeEvent<HTMLInputElement>) {
@@ -141,8 +173,17 @@ export function CallLogPage() {
       {googleSheetSources.map((source) => <span key={source.office} className="call-centre-sheet-link">{repository && canManageIntegrations(user.role) && (user.role === 'super_admin' || user.officeId === source.office) && <button className="btn btn--secondary" type="button" onClick={() => void syncGoogleSheet(source.office)} disabled={sheetImporting !== null}>{sheetImporting === source.office ? 'Syncing…' : `Sync ${source.office}`}</button>}<a href={source.url} target="_blank" rel="noreferrer">Open sheet</a></span>)}
     </div>
     {importMessage && <p className="call-centre-import-status" role="status">{importMessage}</p>}
-    <CallCentreSummary records={visible} />
-    <QuickCapturePanel mode={mode} draft={draft} onChange={updateDraft} onSubmit={saveCapture} onModeChange={setMode} />
-    <LeadRegister records={visible} filters={filters} onFiltersChange={setFilters} onAddActivity={selectActivity} onToggleTimely={toggleTimely} />
+    <CallCentreSummary records={visible} queueView={queueView} onQueueViewChange={setQueueView} />
+    <div className="call-centre-quick-actions" role="group" aria-label="Quick capture actions">
+      <span>Quick capture</span>
+      <button className="btn btn--secondary" type="button" onClick={() => openCapture('lead')}>＋ Add lead</button>
+      <button className="btn btn--secondary" type="button" onClick={() => openCapture('call')}>☎ Log call</button>
+      <button className="btn btn--secondary" type="button" onClick={() => openCapture('door_knock')}>⌂ Log door knock</button>
+    </div>
+    <QuickCapturePanel mode={mode} draft={draft} onChange={updateDraft} onSubmit={saveCapture} onModeChange={setMode} isOpen={captureOpen} onToggle={() => setCaptureOpen((open) => !open)} />
+    <div className="call-centre-workspace__body">
+      <LeadRegister records={visible} filters={filters} onFiltersChange={setFilters} onAddActivity={selectActivity} onToggleTimely={toggleTimely} selectedRecordId={selectedRecord?.id ?? null} onSelectRecord={(record) => setSelectedRecordId(record.id)} queueView={queueView} />
+      {selectedRecord ? <LeadDetailPanel record={selectedRecord} onAddActivity={(captureMode) => selectActivity(selectedRecord, captureMode)} onToggleTimely={(sent) => void toggleTimely(selectedRecord, sent)} onPrevious={() => moveSelection(-1)} onNext={() => moveSelection(1)} canPrevious={queueRecords.length > 1} canNext={queueRecords.length > 1} /> : <section className="call-centre-detail-empty"><h2>Select a lead to work</h2><p>Choose a lead from the queue or add a new one to start.</p></section>}
+    </div>
   </div>
 }

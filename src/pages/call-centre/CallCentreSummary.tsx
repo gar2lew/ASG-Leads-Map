@@ -1,14 +1,20 @@
 import type { LeadRecord } from '../../domain/leadRegister'
-import { countCallbacksDue, countCallsToday } from '../../domain/callQueue'
+import { countCallsToday, filterCallerQueue, type CallQueueView } from '../../domain/callQueue'
 
-export function CallCentreSummary({ records }: { records: LeadRecord[] }) {
-  const metrics = [
-    ['New leads', records.filter((record) => record.qualification === 'new').length, 'OPEN'],
-    ['Calls today', countCallsToday(records), 'ACTIVITY'],
-    ['Callbacks due', countCallbacksDue(records), 'FOLLOW-UP'],
-    ['Door knocks', records.reduce((total, record) => total + record.activities.filter((activity) => activity.kind === 'door_knock').length, 0), 'FIELD'],
-    ['Qualified', records.filter((record) => record.qualification === 'qualified').length, 'READY'],
-    ['Timely ready', records.filter((record) => record.timelySynced).length, 'SYNCED'],
-  ]
-  return <div className="call-centre-summary" aria-label="Call centre summary">{metrics.map(([label, value, tone]) => <article className="call-centre-metric" key={label}><span>{tone}</span><strong>{value}</strong><p>{label}</p></article>)}</div>
+const queues: Array<{ view: CallQueueView; label: string }> = [
+  { view: 'all', label: 'All leads' },
+  { view: 'callbacks', label: 'Callbacks due' },
+  { view: 'new', label: 'New · unworked' },
+  { view: 'qualified', label: 'Qualified' },
+  { view: 'timely-ready', label: 'Timely ready' },
+]
+
+export function CallCentreSummary({ records, queueView, onQueueViewChange }: { records: LeadRecord[]; queueView: CallQueueView; onQueueViewChange: (view: CallQueueView) => void }) {
+  const now = new Date()
+  const calls = countCallsToday(records, now)
+  const knocks = records.reduce((total, record) => total + record.activities.filter((activity) => activity.kind === 'door_knock').length, 0)
+  return <section className="call-centre-summary" aria-label="Call centre work queues">
+    <div className="call-centre-summary__queues" role="group" aria-label="Choose lead queue">{queues.map(({ view, label }) => <button className={queueView === view ? 'is-active' : ''} type="button" key={view} aria-pressed={queueView === view} onClick={() => onQueueViewChange(view)}><span>{label}</span><strong>{filterCallerQueue(records, view, now).length}</strong></button>)}</div>
+    <div className="call-centre-summary__activity" aria-label="Today's activity"><span><strong>{calls}</strong> calls today</span><span><strong>{knocks}</strong> door knocks logged</span></div>
+  </section>
 }

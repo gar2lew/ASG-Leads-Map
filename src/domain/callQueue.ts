@@ -52,6 +52,19 @@ export function orderCallerQueue(records: LeadRecord[], now: Date = new Date()):
     .map(({ record }) => record)
 }
 
+export type CallQueueView = 'all' | 'callbacks' | 'new' | 'qualified' | 'timely-ready'
+
+export function filterCallerQueue(records: LeadRecord[], view: CallQueueView, now: Date = new Date()): LeadRecord[] {
+  const matching = records.filter((record) => {
+    if (view === 'callbacks') return record.qualification === 'callback' && Boolean(record.followUpDate) && record.followUpDate! <= dateInOffice(now, record.office)
+    if (view === 'new') return record.qualification === 'new' && !record.activities.some((activity) => activity.kind === 'call')
+    if (view === 'qualified') return record.qualification === 'qualified'
+    if (view === 'timely-ready') return record.qualification === 'qualified' && !record.timelySynced
+    return true
+  })
+  return orderCallerQueue(matching, now)
+}
+
 export function phoneHref(phone: string): string | null {
   const digits = phone.replace(/\D/g, '')
   if (digits.length < 3) return null

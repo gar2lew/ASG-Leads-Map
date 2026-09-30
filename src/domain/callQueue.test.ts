@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { migrateLeadRecord, type LeadRecord } from './leadRegister'
-import { countCallbacksDue, countCallsToday, orderCallerQueue, phoneHref } from './callQueue'
+import { countCallbacksDue, countCallsToday, filterCallerQueue, orderCallerQueue, phoneHref } from './callQueue'
 
 const now = new Date('2026-09-30T16:30:00.000Z') // 1 October in Perth and Brisbane
 
@@ -9,6 +9,31 @@ function lead(id: string, overrides: Partial<LeadRecord> = {}): LeadRecord {
 }
 
 describe('caller queue', () => {
+  it('filters caller work into due callbacks, unworked new, qualified, and unsent Timely-ready views', () => {
+    const records = [
+      lead('due-today', { qualification: 'callback', followUpDate: '2026-10-01' }),
+      lead('overdue', { qualification: 'callback', followUpDate: '2026-09-30' }),
+      lead('future', { qualification: 'callback', followUpDate: '2026-10-02' }),
+      lead('new-unworked'),
+      lead('new-worked', { activities: [{ id: 'call', leadId: 'new-worked', kind: 'call', occurredAt: '2026-09-29T09:00', repName: 'Jo', outcome: 'No answer', notes: '' }] }),
+      lead('qualified-unsent', { qualification: 'qualified' }),
+      lead('qualified-sent', { qualification: 'qualified', timelySynced: true }),
+    ]
+    const atOfficeMidnight = new Date('2026-09-30T16:30:00.000Z')
+    expect(filterCallerQueue(records, 'callbacks', atOfficeMidnight).map((record) => record.id)).toEqual(['overdue', 'due-today'])
+    expect(filterCallerQueue(records, 'new', atOfficeMidnight).map((record) => record.id)).toEqual(['new-unworked'])
+    expect(filterCallerQueue(records, 'qualified', atOfficeMidnight).map((record) => record.id)).toEqual(['qualified-unsent', 'qualified-sent'])
+    expect(filterCallerQueue(records, 'timely-ready', atOfficeMidnight).map((record) => record.id)).toEqual(['qualified-unsent'])
+  })
+
+  it('evaluates callbacks due against the lead office calendar day', () => {
+    const records = [
+      lead('perth-today', { office: 'perth', qualification: 'callback', followUpDate: '2026-10-01' }),
+      lead('brisbane-overdue', { office: 'brisbane', qualification: 'callback', followUpDate: '2026-09-30' }),
+      lead('perth-tomorrow', { office: 'perth', qualification: 'callback', followUpDate: '2026-10-02' }),
+    ]
+    expect(filterCallerQueue(records, 'callbacks', new Date('2026-09-30T16:30:00.000Z')).map((record) => record.id)).toEqual(['brisbane-overdue', 'perth-today'])
+  })
   it('counts each actual call activity today and ignores default call timestamps and door knocks', () => {
     const untouched = lead('untouched')
     const called = lead('called', { activities: [

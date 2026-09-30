@@ -9,6 +9,8 @@ interface Props {
   onChange: (key: keyof LeadRecord, value: string | boolean) => void
   onSubmit: (draft: LeadRecord, mode: CaptureMode) => void
   onModeChange: (mode: CaptureMode) => void
+  isOpen: boolean
+  onToggle: () => void
 }
 
 const outcomes: Record<CaptureMode, string[]> = {
@@ -17,7 +19,7 @@ const outcomes: Record<CaptureMode, string[]> = {
   door_knock: ['Knocked', 'No Answer', 'Not Interested', 'Lead Qualified', 'Appointment Set'],
 }
 
-export function QuickCapturePanel({ mode, draft, onChange, onSubmit, onModeChange }: Props) {
+export function QuickCapturePanel({ mode, draft, onChange, onSubmit, onModeChange, isOpen, onToggle }: Props) {
   const [error, setError] = useState('')
   const label = mode === 'lead' ? 'Add lead' : mode === 'call' ? 'Log call' : 'Log door knock'
   const activityKind: LeadActivityKind | undefined = mode === 'lead' ? undefined : mode
@@ -35,14 +37,15 @@ export function QuickCapturePanel({ mode, draft, onChange, onSubmit, onModeChang
   return <section className="call-centre-capture" aria-labelledby="capture-heading">
     <div className="call-centre-capture__topline">
       <div><p className="call-centre-kicker">FAST CAPTURE</p><h2 id="capture-heading">{label}</h2><p>Keep the field register clean before Timely CRM.</p></div>
-      <span className="call-centre-capture__badge">{mode === 'door_knock' ? 'FIELD' : mode === 'call' ? 'PHONE' : 'LEAD'}</span>
+      <div className="call-centre-capture__heading-actions"><span className="call-centre-capture__badge">{mode === 'door_knock' ? 'FIELD' : mode === 'call' ? 'PHONE' : 'LEAD'}</span><button className="btn btn--secondary" type="button" aria-expanded={isOpen} aria-controls={isOpen ? 'quick-capture-form' : undefined} onClick={onToggle}>{isOpen ? 'Close capture' : 'Open capture'}</button></div>
     </div>
-    <div className="call-centre-capture__modes" role="tablist" aria-label="Capture type">
+    {isOpen && <>
+    <div className="call-centre-capture__modes" role="group" aria-label="Capture type">
       <button type="button" className={mode === 'lead' ? 'is-active' : ''} onClick={() => onModeChange('lead')}>＋ Add lead</button>
       <button type="button" className={mode === 'call' ? 'is-active' : ''} onClick={() => onModeChange('call')}>☎ Log call</button>
       <button type="button" className={mode === 'door_knock' ? 'is-active' : ''} onClick={() => onModeChange('door_knock')}>⌂ Log door knock</button>
     </div>
-    <form onSubmit={submit} className="call-centre-capture__form">
+    <form id="quick-capture-form" onSubmit={submit} className="call-centre-capture__form">
       <label>Lead name<input value={draft.leadName} onChange={(event) => onChange('leadName', event.target.value)} placeholder="e.g. David Campbell" /></label>
       <label>Property address<input value={draft.address} onChange={(event) => onChange('address', event.target.value)} placeholder="e.g. 124 Riverview Terrace" /></label>
       <label>Contact number<input value={draft.phone} onChange={(event) => onChange('phone', event.target.value)} placeholder="+61 4xx xxx xxx" /></label>
@@ -55,5 +58,6 @@ export function QuickCapturePanel({ mode, draft, onChange, onSubmit, onModeChang
       {error && <p className="call-centre-capture__error" role="alert">{error}</p>}
       <button className="btn btn--primary call-centre-capture__submit" type="submit">Save {mode === 'lead' ? 'lead' : 'activity'} →</button>
     </form>
+    </>}
   </section>
 }
