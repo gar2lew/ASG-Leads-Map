@@ -34,7 +34,9 @@ test.describe('Map Page - Core Navigation & Visual Structure', () => {
 
     // Page title
     await expect(page.getByRole('heading', { name: /field map/i })).toBeVisible();
-    await expect(page.getByText(/track visits, outcomes and leads across your territory/i)).toBeVisible();
+    await expect(
+      page.getByText(/track visits, outcomes and leads across your territory/i),
+    ).toHaveText(/track visits, outcomes and leads across your territory/i);
 
     // Primary action - Add Pin
     await expect(page.getByRole('button', { name: /add pin/i })).toBeVisible();
@@ -91,16 +93,18 @@ test.describe('Map Page - Core Navigation & Visual Structure', () => {
     // Map should be active by default
     await expect(page.getByRole('heading', { name: /field map/i })).toBeVisible();
 
-    // Navigate to Dashboard
-    await page.getByRole('link', { name: /dashboard/i }).click();
+    // Admin destinations are intentionally grouped in the Administration menu.
+    await page.getByRole('button', { name: 'Administration' }).click();
+    await page.getByRole('navigation', { name: 'Administration' }).getByRole('link', { name: /dashboard/i }).click();
     await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible();
 
-    // Navigate to Settings
-    await page.getByRole('link', { name: /settings/i }).click();
+    // Reopen the menu after route navigation, then visit Settings.
+    await page.getByRole('button', { name: 'Administration' }).click();
+    await page.getByRole('navigation', { name: 'Administration' }).getByRole('link', { name: /settings/i }).click();
     await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
 
     // Navigate back to Map
-    await page.getByRole('link', { name: 'Map', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Workspaces' }).getByRole('link', { name: 'Field Workspace' }).click();
     await expect(page.getByRole('heading', { name: /field map/i })).toBeVisible();
 
     expectNoConsoleErrors(errors);
@@ -116,7 +120,7 @@ test.describe('Map Page - Responsive Layout', () => {
     const errors = collectConsoleErrors(page);
 
     if (isMobile) {
-      await expect(page.getByRole('navigation', { name: /field navigation/i })).toBeVisible();
+      await expect(page.getByRole('navigation', { name: /workspace navigation/i })).toBeVisible();
     } else {
       await expect(page.getByRole('heading', { name: /field map/i })).toBeVisible();
     }
@@ -139,7 +143,7 @@ test.describe('Map Page - Responsive Layout', () => {
     await expect(page.getByRole('button', { name: /add pin/i })).toBeVisible();
     await expect(page.locator('.map-page__map')).toBeVisible();
     await expect(page.getByRole('toolbar', { name: /map filters/i })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: /field navigation/i })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /workspace navigation/i })).toBeVisible();
 
     await takeScreenshot(page, 'map-mobile');
 

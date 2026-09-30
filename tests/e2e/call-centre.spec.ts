@@ -5,6 +5,7 @@ test.describe('Call centre workspace', () => {
     await page.goto('/calls')
     await expect(page.getByRole('heading', { name: 'Call centre' })).toBeVisible()
     await expect(page.getByRole('button', { name: /log door knock/i })).toBeVisible()
+    await page.getByRole('button', { name: 'Open capture' }).click()
     await expect(page.getByLabel('Sent to Timely CRM')).toBeVisible()
     await expect(page.getByRole('heading', { name: /lead register/i })).toBeVisible()
   })
