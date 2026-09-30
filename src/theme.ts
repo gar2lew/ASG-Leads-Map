@@ -1,8 +1,20 @@
+import { semanticThemeTokens } from './theme/themeTokens'
+
 export const APP_THEMES = ['light', 'dark', 'high-contrast'] as const
 
 export type AppTheme = (typeof APP_THEMES)[number]
 
-export const DEFAULT_THEME: AppTheme = 'high-contrast'
+export const DEFAULT_THEME: AppTheme = 'light'
+
+export function applyTheme(theme: AppTheme): void {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  root.setAttribute('data-theme', theme)
+  for (const [key, value] of Object.entries(semanticThemeTokens[theme])) {
+    const property = `--asg-theme-${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`
+    root.style.setProperty(property, value)
+  }
+}
 
 export function nextTheme(theme: AppTheme): AppTheme {
   const index = APP_THEMES.indexOf(theme)
@@ -34,9 +46,7 @@ export function initialiseTheme(): AppTheme {
     }
   }
 
-  if (typeof document !== 'undefined') {
-    document.documentElement.setAttribute('data-theme', theme)
-  }
+  applyTheme(theme)
 
   return theme
 }

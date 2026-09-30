@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { canManageSettings } from '../domain'
 import { useCurrentUser } from '../auth'
 import { roleLabel } from '../domain/roles'
-import { initialiseTheme, type AppTheme } from '../theme'
+import { applyTheme, initialiseTheme, type AppTheme } from '../theme'
 import './SettingsPage.css'
 
 export function SettingsPage() {
@@ -14,7 +14,7 @@ export function SettingsPage() {
   const [syncInterval, setSyncInterval] = useState(15)
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
+    applyTheme(theme)
     localStorage.setItem('asg-theme', theme)
   }, [theme])
 
