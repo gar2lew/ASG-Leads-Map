@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import { useCurrentUser, getAuthService } from '../auth'
 import { canViewReports, canManageSettings, canManageUsers, roleLabel, canManageTerritories } from '../domain'
+import { DEFAULT_WORKSPACE_STORAGE_KEY, getAvailableWorkspaces, type WorkspaceId } from '../domain/workspaces'
 import './Layout.css'
 import { initialiseTheme, nextTheme, type AppTheme } from '../theme'
 
@@ -16,6 +17,15 @@ export function Layout({ children }: LayoutProps) {
   const showSettings = canManageSettings(currentUser.role)
   const showAdminUsers = canManageUsers(currentUser.role)
   const showAdminTerritories = canManageTerritories(currentUser.role)
+  const dailyWorkspaces = getAvailableWorkspaces(currentUser).filter((workspace) => workspace.id !== 'import')
+
+  const rememberWorkspace = (workspaceId: WorkspaceId) => {
+    try {
+      localStorage.setItem(DEFAULT_WORKSPACE_STORAGE_KEY, workspaceId)
+    } catch {
+      // Navigation still works when storage is unavailable.
+    }
+  }
 
   const handleSignOut = async () => {
     try {
@@ -50,17 +60,24 @@ export function Layout({ children }: LayoutProps) {
             />
             <span className="header__logo-text">ASG Leads Map</span>
           </NavLink>
-          <nav className="header__nav" role="navigation" aria-label="Primary navigation">
+          <nav className="header__nav header__workspace-nav" aria-label="Workspaces">
             <ul className="header__nav-list">
-              <li>
-                <NavLink
-                  to="/map"
-                  className={({ isActive }) =>
-                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
-                >
-                  Map
-                </NavLink>
-              </li>
+              {dailyWorkspaces.map((workspace) => (
+                <li key={workspace.id}>
+                  <NavLink
+                    to={workspace.landingRoute}
+                    onClick={() => rememberWorkspace(workspace.id)}
+                    className={({ isActive }) => `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
+                  >
+                    {workspace.title}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          {(showReports || showAdminUsers || showAdminTerritories || showSettings) && (
+          <nav className="header__nav header__admin-nav" aria-label="Administration">
+            <ul className="header__nav-list">
               {showReports && (
                 <li>
                   <NavLink
@@ -72,7 +89,6 @@ export function Layout({ children }: LayoutProps) {
                   </NavLink>
                 </li>
               )}
-              <li><NavLink to="/calls" className={({ isActive }) => `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}>Call Log</NavLink></li>
               {showAdminUsers && (
                 <li>
                   <NavLink
@@ -119,6 +135,7 @@ export function Layout({ children }: LayoutProps) {
               )}
             </ul>
           </nav>
+          )}
           <div className="header__actions">
             <button
               className="btn btn--ghost btn--sm header__theme-toggle"
@@ -164,16 +181,16 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </footer>
       <nav className="app__mobile-nav" aria-label="Field navigation">
-        <NavLink
-          to="/map"
-          className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
-            <circle cx="12" cy="10" r="2.5" />
-          </svg>
-          <span>Map</span>
-        </NavLink>
+        {dailyWorkspaces.map((workspace) => (
+          <NavLink
+            key={workspace.id}
+            to={workspace.landingRoute}
+            onClick={() => rememberWorkspace(workspace.id)}
+            className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
+          >
+            <span>{workspace.title}</span>
+          </NavLink>
+        ))}
         {showReports && (
           <NavLink
             to="/dashboard"

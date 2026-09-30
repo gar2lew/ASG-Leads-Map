@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './auth'
+import { AuthProvider, useCurrentUser } from './auth'
+import { DEFAULT_WORKSPACE_STORAGE_KEY, getDefaultWorkspaceRoute } from './domain/workspaces'
 import { RequireAuth, RequireRole } from './components/RouteGuards'
 import { MapPage } from './pages/MapPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -13,6 +14,17 @@ import { TerritoriesPage } from './pages/TerritoriesPage'
 import { CallLogPage } from './pages/CallLogPage'
 import './App.css'
 
+function WorkspaceLanding() {
+  const currentUser = useCurrentUser()
+  let savedWorkspace: string | null = null
+  try {
+    savedWorkspace = localStorage.getItem(DEFAULT_WORKSPACE_STORAGE_KEY)
+  } catch {
+    // Private browsing can disable storage; Map remains the default.
+  }
+  return <Navigate to={getDefaultWorkspaceRoute(currentUser, savedWorkspace)} replace />
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -21,7 +33,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/setup-admin" element={<SetupAdminPage />} />
           <Route element={<RequireAuth />}>
-            <Route path="/" element={<Navigate to="/map" replace />} />
+            <Route path="/" element={<WorkspaceLanding />} />
             <Route path="/map" element={<MapPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/calls" element={<CallLogPage />} />

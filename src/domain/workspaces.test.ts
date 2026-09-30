@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Role, type CurrentUser } from './roles'
-import { getAvailableWorkspaces } from './workspaces'
+import { getAvailableWorkspaces, getDefaultWorkspaceRoute } from './workspaces'
 
 const user: CurrentUser = {
   id: 'field-user',
@@ -47,5 +47,23 @@ describe('getAvailableWorkspaces', () => {
   it('fails closed for an empty or unknown profile', () => {
     expect(getAvailableWorkspaces({} as CurrentUser)).toEqual([])
     expect(getAvailableWorkspaces({ ...user, role: 'unknown' as Role })).toEqual([])
+  })
+})
+
+describe('getDefaultWorkspaceRoute', () => {
+  it('opens Map when no workspace has been selected', () => {
+    expect(getDefaultWorkspaceRoute(user)).toBe('/map')
+  })
+
+  it('opens the explicitly saved Call Centre for an active rep', () => {
+    expect(getDefaultWorkspaceRoute(user, 'contacts')).toBe('/calls')
+  })
+
+  it.each(['import', 'unknown', '', '{bad json}'])('falls back to Map for unavailable or stale value %s', (savedWorkspace) => {
+    expect(getDefaultWorkspaceRoute(user, savedWorkspace)).toBe('/map')
+  })
+
+  it('does not open a saved workspace for an inactive user', () => {
+    expect(getDefaultWorkspaceRoute({ ...user, active: false }, 'contacts')).toBe('/map')
   })
 })

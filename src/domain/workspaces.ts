@@ -13,7 +13,7 @@ export interface WorkspaceDefinition {
 const WORKSPACES: WorkspaceDefinition[] = [
   {
     id: 'map',
-    title: 'Map',
+    title: 'Field Map',
     description: 'View leads and manage field activity on the map.',
     landingRoute: '/map',
     requiredCapability: 'map:view',
@@ -27,7 +27,7 @@ const WORKSPACES: WorkspaceDefinition[] = [
   },
   {
     id: 'contacts',
-    title: 'Contacts',
+    title: 'Call Centre',
     description: 'View and follow up contacts in the call log.',
     landingRoute: '/calls',
     requiredCapability: 'map:view',
@@ -37,4 +37,13 @@ const WORKSPACES: WorkspaceDefinition[] = [
 export function getAvailableWorkspaces(user: CurrentUser | null | undefined): WorkspaceDefinition[] {
   if (!user || user.active !== true || !isValidRole(user.role)) return []
   return WORKSPACES.filter((workspace) => hasCapability(user.role, workspace.requiredCapability))
+}
+
+export const DEFAULT_WORKSPACE_STORAGE_KEY = 'asg-default-workspace'
+
+export function getDefaultWorkspaceRoute(user: CurrentUser | null | undefined, savedWorkspace?: string | null): string {
+  const selected = getAvailableWorkspaces(user).find(
+    (workspace) => workspace.id !== 'import' && workspace.id === savedWorkspace,
+  )
+  return selected?.landingRoute ?? '/map'
 }
