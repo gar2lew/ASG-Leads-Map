@@ -100,4 +100,22 @@ describe('CallLogPage', () => {
 
     await waitFor(() => expect(mockRepo.addLeadActivity).toHaveBeenCalledWith('shared-lead-1', expect.objectContaining({ kind: 'call', outcome: 'Connected' })))
   })
+
+  it('prioritizes a callback after filtering and exposes safe call and map actions', async () => {
+    mockRecords.push(
+      { id: 'ordinary', date: '2026-09-29', leadName: 'Ordinary Lead', address: '1 Main St', phone: '', notes: '', updateLead: false, renterOwner: 'Owner', superannuation: '$75-150k', repName: 'Jordan', leadStatus: 'New', callTimestamp: '2026-09-29T09:00', callResult: '', leadId: 'one', office: 'perth', qualification: 'new', timelySynced: false, activities: [] },
+      { id: 'callback/id', date: '2026-09-29', leadName: 'Callback Lead', address: '2 Main St', phone: ' +61 (4) 123-456-789 ', notes: '', updateLead: false, renterOwner: 'Owner', superannuation: '$75-150k', repName: 'Jordan', leadStatus: 'New', callTimestamp: '2026-09-29T09:00', callResult: '', leadId: 'two', office: 'perth', qualification: 'callback', followUpDate: '2026-09-28', timelySynced: false, activities: [] },
+    )
+    render(<CallLogPage />)
+
+    const cards = screen.getAllByRole('article').filter((element) => element.classList.contains('lead-card'))
+    expect(cards.map((element) => element.querySelector('h3')?.textContent)).toEqual(['Callback Lead', 'Ordinary Lead'])
+    expect(screen.getByRole('link', { name: 'Call Callback Lead' })).toHaveAttribute('href', 'tel:+614123456789')
+    expect(screen.queryByRole('link', { name: 'Call Ordinary Lead' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View Callback Lead on map' })).toHaveAttribute('href', '/map?leadId=callback%2Fid')
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search leads' }), { target: { value: 'Ordinary' } })
+    const filteredCards = screen.getAllByRole('article').filter((element) => element.classList.contains('lead-card'))
+    expect(filteredCards.map((element) => element.querySelector('h3')?.textContent)).toEqual(['Ordinary Lead'])
+  })
 })

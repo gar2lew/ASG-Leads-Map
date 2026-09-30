@@ -1,11 +1,11 @@
 import type { LeadRecord } from '../../domain/leadRegister'
+import { countCallbacksDue, countCallsToday } from '../../domain/callQueue'
 
 export function CallCentreSummary({ records }: { records: LeadRecord[] }) {
-  const today = new Date().toISOString().slice(0, 10)
   const metrics = [
     ['New leads', records.filter((record) => record.qualification === 'new').length, 'OPEN'],
-    ['Calls today', records.filter((record) => record.callTimestamp.startsWith(today)).length, 'ACTIVITY'],
-    ['Callbacks due', records.filter((record) => record.qualification === 'callback' && record.followUpDate && record.followUpDate <= today).length, 'FOLLOW-UP'],
+    ['Calls today', countCallsToday(records), 'ACTIVITY'],
+    ['Callbacks due', countCallbacksDue(records), 'FOLLOW-UP'],
     ['Door knocks', records.reduce((total, record) => total + record.activities.filter((activity) => activity.kind === 'door_knock').length, 0), 'FIELD'],
     ['Qualified', records.filter((record) => record.qualification === 'qualified').length, 'READY'],
     ['Timely ready', records.filter((record) => record.timelySynced).length, 'SYNCED'],
