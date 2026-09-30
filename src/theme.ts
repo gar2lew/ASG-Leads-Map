@@ -16,13 +16,22 @@ export function resolveInitialTheme(savedTheme: string | null): AppTheme {
 }
 
 export function initialiseTheme(): AppTheme {
-  const savedTheme = typeof window === 'undefined'
-    ? null
-    : window.localStorage.getItem('asg-theme')
+  let savedTheme: string | null = null
+  if (typeof window !== 'undefined') {
+    try {
+      savedTheme = window.localStorage.getItem('asg-theme')
+    } catch {
+      // Browsers may disable storage; the default theme still applies.
+    }
+  }
   const theme = resolveInitialTheme(savedTheme)
 
   if (typeof window !== 'undefined' && savedTheme !== theme) {
-    window.localStorage.setItem('asg-theme', theme)
+    try {
+      window.localStorage.setItem('asg-theme', theme)
+    } catch {
+      // Keep the current session usable without persisted preferences.
+    }
   }
 
   if (typeof document !== 'undefined') {

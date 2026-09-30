@@ -37,6 +37,17 @@ describe('initialiseTheme', () => {
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
     expect(localStorage.getItem('asg-theme')).toBe('dark')
   })
+
+  it('applies the default theme when browser storage is unavailable', () => {
+    const storage = Object.getOwnPropertyDescriptor(window, 'localStorage')
+    Object.defineProperty(window, 'localStorage', { configurable: true, get: () => { throw new Error('Storage blocked') } })
+    try {
+      expect(initialiseTheme()).toBe('high-contrast')
+      expect(document.documentElement).toHaveAttribute('data-theme', 'high-contrast')
+    } finally {
+      if (storage) Object.defineProperty(window, 'localStorage', storage)
+    }
+  })
 })
 
 describe('nextTheme', () => {

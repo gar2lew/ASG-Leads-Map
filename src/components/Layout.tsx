@@ -215,6 +215,14 @@ export function Layout({ children }: LayoutProps) {
                     <span>Admin Users</span>
                   </NavLink>
                 )}
+        {showAdminUsers && (
+          <NavLink
+            to="/admin/import"
+            className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
+          >
+            <span>Import Leads</span>
+          </NavLink>
+        )}
                 {showAdminTerritories && (
                   <NavLink
                     to="/admin/territories"

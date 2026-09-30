@@ -12,7 +12,7 @@ export function LoginPage() {
   const { status, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as LoginLocationState | null)?.from ?? '/map'
+  const from = (location.state as LoginLocationState | null)?.from ?? '/'
   const devAuth = isDevAuthActive()
 
   const [loginMode, setLoginMode] = useState<'rep' | 'admin'>('admin')

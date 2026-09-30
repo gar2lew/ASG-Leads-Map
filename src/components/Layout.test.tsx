@@ -36,5 +36,6 @@ describe('signed-in workspace navigation', () => {
 
     expect(screen.getByRole('navigation', { name: 'Workspaces' })).not.toHaveTextContent('Import')
     expect(screen.getByRole('navigation', { name: 'Administration' })).toHaveTextContent('Import Leads')
+    expect(within(screen.getByRole('navigation', { name: 'Field navigation' })).getByRole('link', { name: 'Import Leads' })).toHaveAttribute('href', '/admin/import')
   })
 })

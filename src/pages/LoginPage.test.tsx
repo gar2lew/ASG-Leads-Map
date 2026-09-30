@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from '../auth/AuthProvider'
 import { AuthError } from '../auth/types'
 import type { CurrentUser } from '../domain/roles'
+import { getDefaultWorkspaceRoute } from '../domain/workspaces'
 
 const adminUser: CurrentUser = {
   id: 'admin-1',
@@ -52,13 +53,15 @@ vi.mock('../auth/services', () => ({
 
 import { LoginPage } from './LoginPage'
 
-async function renderLogin() {
+async function renderLogin(from?: string) {
   render(
-    <MemoryRouter initialEntries={['/login']}>
+    <MemoryRouter initialEntries={[{ pathname: '/login', state: from ? { from } : null }]}>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<Navigate to={getDefaultWorkspaceRoute(adminUser, localStorage.getItem('asg-default-workspace'))} replace />} />
           <Route path="/map" element={<div>MAP_STUB</div>} />
+          <Route path="/calls" element={<div>CALLS_STUB</div>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>,
@@ -72,6 +75,7 @@ async function renderLogin() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.clear()
   mocks.service.signIn.mockReset()
   mocks.service.signInWithAdminPin.mockReset()
   mocks.service.setUser(null)
@@ -137,6 +141,28 @@ describe('LoginPage', () => {
     expect(await screen.findByText('MAP_STUB')).toBeInTheDocument()
   })
 
+  it('opens a saved Call Centre workspace after successful sign-in', async () => {
+    localStorage.setItem('asg-default-workspace', 'contacts')
+    const user = await renderLogin()
+    mocks.service.signInWithAdminPin.mockResolvedValueOnce({ user: adminUser, requiresPinSetup: false })
+
+    await user.type(screen.getByLabelText('6-digit admin PIN'), '123456')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    expect(await screen.findByText('CALLS_STUB')).toBeInTheDocument()
+  })
+
+  it('preserves an explicit return route ahead of a saved workspace', async () => {
+    localStorage.setItem('asg-default-workspace', 'contacts')
+    const user = await renderLogin('/map')
+    mocks.service.signInWithAdminPin.mockResolvedValueOnce({ user: adminUser, requiresPinSetup: false })
+
+    await user.type(screen.getByLabelText('6-digit admin PIN'), '123456')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    expect(await screen.findByText('MAP_STUB')).toBeInTheDocument()
+  })
+
   it('redirects to the map when already signed in', async () => {
     mocks.service.setUser(adminUser)
 
@@ -145,6 +171,7 @@ describe('LoginPage', () => {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<Navigate to={getDefaultWorkspaceRoute(adminUser, localStorage.getItem('asg-default-workspace'))} replace />} />
             <Route path="/map" element={<div>MAP_STUB</div>} />
           </Routes>
         </AuthProvider>
