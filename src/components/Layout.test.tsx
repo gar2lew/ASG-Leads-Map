@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { Role, type CurrentUser } from '../domain/roles'
+import { semanticThemeTokens } from '../theme/themeTokens'
 import { Layout } from './Layout'
 
 let currentUser: CurrentUser = {
@@ -20,6 +21,20 @@ afterEach(() => {
 })
 
 describe('signed-in workspace navigation', () => {
+  it('layoutThemeToggleAppliesAllSemanticColors', () => {
+    localStorage.setItem('asg-theme', 'light')
+    render(<MemoryRouter initialEntries={['/map']}><Layout><div>Workspace content</div></Layout></MemoryRouter>)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }))
+
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    expect(localStorage.getItem('asg-theme')).toBe('dark')
+    for (const [key, value] of Object.entries(semanticThemeTokens.dark)) {
+      const property = `--asg-theme-${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`
+      expect(document.documentElement.style.getPropertyValue(property)).toBe(value)
+    }
+  })
+
   it('lets a rep select Call Centre and remembers that choice', () => {
     render(<MemoryRouter initialEntries={['/map']}><Layout><div>Workspace content</div></Layout></MemoryRouter>)
 

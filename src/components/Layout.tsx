@@ -4,7 +4,7 @@ import { useCurrentUser, getAuthService } from '../auth'
 import { canViewReports, canManageSettings, canManageUsers, roleLabel, canManageTerritories } from '../domain'
 import { DEFAULT_WORKSPACE_STORAGE_KEY, getAvailableWorkspaces, type WorkspaceId } from '../domain/workspaces'
 import './Layout.css'
-import { initialiseTheme, nextTheme, type AppTheme } from '../theme'
+import { applyTheme, initialiseTheme, nextTheme, type AppTheme } from '../theme'
 
 interface LayoutProps {
   children?: ReactNode
@@ -38,7 +38,7 @@ export function Layout({ children }: LayoutProps) {
   const handleThemeToggle = () => {
     const updatedTheme = nextTheme(theme)
     setTheme(updatedTheme)
-    document.documentElement.setAttribute('data-theme', updatedTheme)
+    applyTheme(updatedTheme)
     localStorage.setItem('asg-theme', updatedTheme)
   }
 
