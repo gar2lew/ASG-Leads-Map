@@ -361,6 +361,14 @@
   .app__mobile-nav-link--active { color: var(--asg-color-gold-600); background: var(--asg-color-gold-100); }
 }
 
+@media (max-width: 480px) {
+  .header__container,
+  .header__actions { gap: var(--asg-space-1); }
+  .header__logo { width: 44px; justify-content: center; }
+  .header__logo-image { display: block; width: 32px; height: 32px; }
+  .header__logo-text { display: none; }
+}
+
 /* Premium shell */
 .app {
   background:

@@ -11,6 +11,23 @@ test.beforeEach(async ({ page }) => {
   await mockMapTiles(page);
 });
 
+for (const width of [320, 375]) {
+  test(`admin header controls fit at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 700 });
+    await page.goto('/map');
+    for (const name of ['Administration', 'Toggle theme', 'Sign out']) {
+      const control = page.getByRole('button', { name });
+      await expect(control).toBeVisible();
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    }
+    await page.getByRole('button', { name: 'Administration' }).click();
+    await expect(page.getByRole('navigation', { name: 'Administration' }).getByRole('link', { name: 'Import Leads' })).toBeVisible();
+  });
+}
+
 test.describe('Role-based access control (dev roles)', () => {
   test.beforeEach(async ({ page, isMobile }) => {
     test.skip(isMobile, 'Desktop header controls are covered separately from mobile route guards.');
