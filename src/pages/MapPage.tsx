@@ -101,8 +101,8 @@ export function MapPage() {
   const pendingPinCount = useMemo(() => pins.filter((pin) => !pin.synced || pin.pendingLeadActivity).length, [pins])
   const selectedPin = pins.find((pin) => pin.id === selectedPinId) ?? null
   const selectedLeadRecord = selectedPin
-    ? leadRecords.find((record) => record.id === selectedPin.linkedLeadId || record.id === selectedPin.id ||
-      record.pinId === selectedPin.id || record.pinIds?.includes(selectedPin.id))
+    ? leadRecords.find((record) => record.id === selectedPin.linkedLeadId) ??
+      leadRecords.find((record) => record.id === selectedPin.id || record.pinId === selectedPin.id || record.pinIds?.includes(selectedPin.id))
     : undefined
   const leadRecordsLoaded = !leadRepository || hasLeadRecordsSubscriptionLoaded
 

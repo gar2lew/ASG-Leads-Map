@@ -1493,6 +1493,40 @@ describe('MapPage - shared map interactions', () => {
     expect(getMapInstance().easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [115.86, -31.95] }))
   })
 
+  it('prefers the pin explicit linkedLeadId over an earlier record pinId fallback', async () => {
+    const user = userEvent.setup()
+    mockIsFirebaseConfigured.mockReturnValue(true)
+    mockLeadRecords.push(
+      {
+        id: 'fallback-lead', leadId: 'fallback-external', leadName: 'Fallback Contact', address: '9 Swan Street, Perth WA 6000',
+        phone: '', notes: '', date: '2026-09-30', callTimestamp: '2026-09-30T10:00', callResult: '', updateLead: false,
+        renterOwner: 'Owner', superannuation: '$75-150k', repName: 'Fallback Rep', leadStatus: 'New', office: 'perth',
+        pinId: 'linked-pin', latitude: -31.95, longitude: 115.86, pinOutcome: 'lead', qualification: 'new',
+        timelySynced: false, activities: [],
+      },
+      {
+        id: 'explicit-lead', leadId: 'explicit-external', leadName: 'Explicit Contact', address: '12 Swan Street, Perth WA 6000',
+        phone: '', notes: '', date: '2026-09-30', callTimestamp: '2026-09-30T10:00', callResult: '', updateLead: false,
+        renterOwner: 'Owner', superannuation: '$150-250k', repName: 'Explicit Rep', leadStatus: 'Qualified', office: 'perth',
+        pinId: 'another-pin', latitude: -31.94, longitude: 115.87, pinOutcome: 'lead', qualification: 'qualified',
+        timelySynced: false, activities: [],
+      },
+    )
+    mockPins.push({
+      id: 'linked-pin', linkedLeadId: 'explicit-lead', latitude: -31.95, longitude: 115.86, outcome: 'lead',
+      address: '9 Swan Street, Perth WA 6000', createdAt: '2026-09-30T10:00:00.000Z', updatedAt: '2026-09-30T10:00:00.000Z',
+      createdBy: 'test-admin', synced: false, syncAttempts: 0,
+    })
+    render(<BrowserRouter><MapPage /></BrowserRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /pin: 9 swan street/i }))
+
+    const sheet = screen.getByRole('complementary', { name: /property details/i })
+    expect(sheet).toHaveTextContent('Explicit Contact')
+    expect(sheet).toHaveTextContent('Qualified')
+    expect(sheet).not.toHaveTextContent('Fallback Contact')
+  })
+
   it('runs a manual sync and reports partial failure so pending pins remain retryable', async () => {
     const user = userEvent.setup()
     mockPins.push({ id: 'pending-pin', latitude: -31.95, longitude: 115.86, outcome: 'knocked', synced: false })
