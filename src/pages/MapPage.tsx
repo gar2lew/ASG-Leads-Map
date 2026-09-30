@@ -1,11 +1,12 @@
 import { useRef, useEffect, useState, useCallback, useMemo, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Pin, PinOutcome } from '../domain'
 import type { CreatePinInput } from '../domain'
 import { countLeadsNeedingLocation, mergeLeadMapPins } from '../domain/leadMapProjection'
 import { createFirestoreLeadRegisterRepository } from '../domain/firestoreLeadRegisterRepository'
-import { migrateLeadRecord, type LeadRecord } from '../domain/leadRegister'
+import { migrateLeadRecord, type LeadActivity, type LeadRecord } from '../domain/leadRegister'
 import { getFirestoreDb } from '../firebase/firestore'
 import { isFirebaseConfigured } from '../firebase/config'
 import {
@@ -50,9 +51,13 @@ export function MapPage() {
   const markersRef = useRef<Map<string, HTMLElement>>(new Map())
   const provisionalMarkerRef = useRef<maplibregl.Marker | null>(null)
   const tileErrorRef = useRef<HTMLDivElement | null>(null)
+  const syncInFlightRef = useRef(false)
+  const lastHandledLeadIdRef = useRef<string | null>(null)
+  const pendingKnockActivitiesRef = useRef(new Map<string, LeadActivity>())
 
   const [cachedPins, setCachedPins] = useState<Pin[]>([])
   const [leadRecords, setLeadRecords] = useState<LeadRecord[]>([])
+  const [hasLeadRecordsSubscriptionLoaded, setHasLeadRecordsSubscriptionLoaded] = useState(false)
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [outcomeFilter, setOutcomeFilter] = useState<PinOutcome | ''>('')
@@ -69,6 +74,9 @@ export function MapPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [syncStatus, setSyncStatus] = useState('')
+  const [searchParams] = useSearchParams()
+  const requestedLeadId = searchParams.get('leadId')
   const [locationStatus, setLocationStatus] = useState<'requesting' | 'located' | 'fallback'>('requesting')
   const currentUser = useCurrentUser()
   const leadRepository = useMemo(() => isFirebaseConfigured() ? createFirestoreLeadRegisterRepository(getFirestoreDb(), currentUser) : null, [currentUser])
@@ -90,8 +98,9 @@ export function MapPage() {
       return true
     })
   }, [currentUser.uid, outcomeFilter, pins, repFilter, searchQuery])
-  const pendingPinCount = useMemo(() => pins.filter((pin) => !pin.synced).length, [pins])
+  const pendingPinCount = useMemo(() => pins.filter((pin) => !pin.synced || pin.pendingLeadActivity).length, [pins])
   const selectedPin = pins.find((pin) => pin.id === selectedPinId) ?? null
+  const leadRecordsLoaded = !leadRepository || hasLeadRecordsSubscriptionLoaded
 
   const loadPins = useCallback(async () => {
     try {
@@ -105,8 +114,12 @@ export function MapPage() {
 
   useEffect(() => {
     if (!leadRepository) return
-    return leadRepository.subscribeLeadRecords(setLeadRecords, (error) => {
+    return leadRepository.subscribeLeadRecords((records) => {
+      setLeadRecords(records)
+      setHasLeadRecordsSubscriptionLoaded(true)
+    }, (error) => {
       console.error('Failed to subscribe to shared leads:', error)
+      setHasLeadRecordsSubscriptionLoaded(true)
     })
   }, [leadRepository])
 
@@ -127,22 +140,79 @@ export function MapPage() {
     }
   }, [])
 
-  useEffect(() => {
-    const sync = () => {
-      setIsSyncing(true)
-      void syncPendingPins()
-        .then(({ synced }) => {
-          if (synced > 0) {
-            setFeedback({ kind: 'success', message: `${synced} offline ${synced === 1 ? 'change' : 'changes'} synced` })
-            void loadPins()
+  const clearPendingActivity = useCallback(async (pin: Pin) => {
+    const updatedPin = { ...pin, updatedAt: new Date().toISOString(), synced: false }
+    delete updatedPin.pendingLeadActivity
+    await savePin(updatedPin)
+  }, [])
+
+  const runSync = useCallback(async () => {
+    if (!isOnline || syncInFlightRef.current) return
+    syncInFlightRef.current = true
+    setIsSyncing(true)
+    setSyncStatus('Syncing local changes…')
+    try {
+      const pinResult = await syncPendingPins()
+      const currentPins = await getAllPins()
+      let activitySynced = 0
+      let activityFailed = 0
+      if (leadRepository) {
+        for (const pin of currentPins) {
+          const pending = pin.pendingLeadActivity
+          if (!pending) continue
+          try {
+            await leadRepository.addLeadActivity(pending.recordId, pending.activity)
+            await clearPendingActivity(pin)
+            activitySynced += 1
+          } catch (error) {
+            console.error('Failed to sync queued lead activity:', error)
+            activityFailed += 1
           }
-        })
-        .finally(() => setIsSyncing(false))
+        }
+      }
+      const synced = pinResult.synced + activitySynced
+      const failed = pinResult.failed + activityFailed
+      await loadPins()
+      if (failed > 0) {
+        const message = `${failed} local ${failed === 1 ? 'change could' : 'changes could'} not sync. Select Sync to retry.`
+        setSyncStatus(message)
+        setFeedback({ kind: 'error', message })
+      } else if (synced > 0) {
+        setSyncStatus(`${synced} local ${synced === 1 ? 'change' : 'changes'} synced`)
+        setFeedback({ kind: 'success', message: `${synced} offline ${synced === 1 ? 'change' : 'changes'} synced` })
+      } else {
+        setSyncStatus('Everything is up to date')
+      }
+    } catch (error) {
+      console.error('Failed to sync local pins:', error)
+      const message = 'Sync failed. Local changes are still saved; select Sync to retry.'
+      setSyncStatus(message)
+      setFeedback({ kind: 'error', message })
+    } finally {
+      syncInFlightRef.current = false
+      setIsSyncing(false)
     }
-    sync()
-    window.addEventListener('online', sync)
-    return () => window.removeEventListener('online', sync)
-  }, [loadPins])
+  }, [clearPendingActivity, isOnline, leadRepository, loadPins])
+
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- sync queued offline writes when connectivity is restored
+    if (isOnline) void runSync()
+  }, [isOnline, runSync])
+
+  useEffect(() => {
+    if (!requestedLeadId || isLoading || !leadRecordsLoaded || lastHandledLeadIdRef.current === requestedLeadId) return
+    const record = leadRecords.find((item) => item.id === requestedLeadId)
+    const pin = pins.find((item) => item.id === requestedLeadId || item.linkedLeadId === requestedLeadId ||
+      item.id === record?.pinId || record?.pinIds?.includes(item.id) || (record && item.linkedLeadId === record.id))
+    lastHandledLeadIdRef.current = requestedLeadId
+    if (!pin || !Number.isFinite(pin.latitude) || !Number.isFinite(pin.longitude)) {
+      // oxlint-disable-next-line react/set-state-in-effect -- show a one-time message for an unresolved lead deep link
+      setFeedback({ kind: 'error', message: 'This lead does not have a mapped address yet.' })
+      return
+    }
+    setSelectedPinId(pin.id)
+    mapRef.current?.easeTo({ center: [pin.longitude, pin.latitude], zoom: 14, duration: 600 })
+  }, [isLoading, leadRecords, leadRecordsLoaded, pins, requestedLeadId])
 
   const createProvisionalMarker = () => {
     if (provisionalMarkerRef.current) return
@@ -253,12 +323,12 @@ export function MapPage() {
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         setLocationStatus('located')
-        mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 13, duration: 900 })
+        if (!requestedLeadId) mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 13, duration: 900 })
       },
       () => setLocationStatus('fallback'),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
     )
-  }, [])
+  }, [requestedLeadId])
 
   // Handle map tile errors
   useEffect(() => {
@@ -439,16 +509,53 @@ export function MapPage() {
   const handleSavePin = async (data: { latitude: number; longitude: number; outcome: PinOutcome; address?: string; notes?: string; contactName?: string; contactPhone?: string; contactEmail?: string }) => {
     setIsLoading(true)
     const wasEditing = Boolean(editingPin)
+    let sharedKnockWriteFailed = false
     try {
       if (editingPin) {
         // Update existing pin
-        const linkedLead = leadRecords.find((record) => (record.pinId || record.id) === editingPin.id)
-        const updatedPin = {
+        const linkedLead = leadRecords.find((record) => record.id === editingPin.linkedLeadId || record.pinId === editingPin.id || record.id === editingPin.id || record.pinIds?.includes(editingPin.id))
+        const outcomeChanged = data.outcome !== editingPin.outcome
+        const existingPending = editingPin.pendingLeadActivity
+        if (existingPending && existingPending.activity.outcome !== pinOutcomeLabel(data.outcome)) {
+          setFeedback({ kind: 'error', message: 'Sync the pending door-knock activity before changing this outcome again.' })
+          return
+        }
+        let pendingActivity: Pin['pendingLeadActivity'] = existingPending
+        if (!pendingActivity && outcomeChanged && linkedLead && leadRepository) {
+          const activityKey = `${linkedLead.id}:${editingPin.id}:${data.outcome}`
+          const activity = pendingKnockActivitiesRef.current.get(activityKey) ?? {
+            id: crypto.randomUUID(),
+            leadId: linkedLead.leadId || linkedLead.id,
+            kind: 'door_knock' as const,
+            occurredAt: new Date().toISOString(),
+            repName: currentUser.displayName || currentUser.name || currentUser.email,
+            outcome: pinOutcomeLabel(data.outcome),
+            notes: data.notes?.trim() || '',
+          }
+          pendingKnockActivitiesRef.current.set(activityKey, activity)
+          pendingActivity = { recordId: linkedLead.id, activity }
+        }
+        let updatedPin = {
           ...editingPin, ...data, ...(linkedLead ? { linkedLeadId: linkedLead.id } : {}),
+          ...(pendingActivity ? { pendingLeadActivity: pendingActivity } : {}),
           updatedAt: new Date().toISOString(), synced: false,
         } as Pin
         await savePin(updatedPin)
         setCachedPins((prev) => prev.map((p) => (p.id === editingPin.id ? updatedPin : p)))
+        if (pendingActivity && leadRepository) {
+          const activityKey = `${pendingActivity.recordId}:${editingPin.id}:${pendingActivity.activity.outcome}`
+          try {
+            await leadRepository.addLeadActivity(pendingActivity.recordId, pendingActivity.activity)
+            pendingKnockActivitiesRef.current.delete(activityKey)
+            await clearPendingActivity(updatedPin)
+            delete updatedPin.pendingLeadActivity
+            updatedPin.synced = false
+            setCachedPins((prev) => prev.map((p) => (p.id === editingPin.id ? updatedPin : p)))
+          } catch (error) {
+            sharedKnockWriteFailed = true
+            throw error
+          }
+        }
       } else {
         // Create new pin
         const createPinData: CreatePinInput = {
@@ -472,7 +579,12 @@ export function MapPage() {
       setFeedback({ kind: 'success', message: wasEditing ? 'Pin updated' : 'Pin saved' })
     } catch (error) {
       console.error('Failed to save pin:', error)
-      setFeedback({ kind: 'error', message: 'Failed to save pin. Please try again.' })
+      setFeedback({
+        kind: 'error',
+        message: sharedKnockWriteFailed
+          ? 'The pin outcome saved, but the shared activity could not be confirmed. It remains queued; select Sync to retry safely.'
+          : 'Failed to save pin. Please try again.',
+      })
     } finally {
       setIsLoading(false)
     }
@@ -544,12 +656,12 @@ export function MapPage() {
               Add Lead
             </button>
           )}
-          <button className="btn btn--secondary" type="button" disabled={isLoading}>
+          <button className="btn btn--secondary" type="button" onClick={() => void runSync()} disabled={isSyncing || !isOnline}>
             <svg className="icon btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M3 3h18v18H3z" />
               <path d="M12 8v8M8 12h8" />
             </svg>
-            Sync
+            {isSyncing ? 'Syncing…' : 'Sync'}
           </button>
           {showExport && (
             <button className="btn btn--outline btn--sm" type="button" disabled={pins.length === 0} onClick={handleExportCsv}>
@@ -596,6 +708,7 @@ export function MapPage() {
               ? `Offline — ${pendingPinCount} ${pendingPinCount === 1 ? 'change' : 'changes'} saved locally`
               : 'Offline — changes saved locally'}
         </span>
+        {syncStatus && <span className="map-page__sync-status" role="status" aria-label="Sync status" aria-live="polite">{syncStatus}</span>}
         {/* Search - placeholder for future */}
         <form className="map-page__filter-group map-page__search" role="search" aria-label="Map search and filters" onSubmit={handleSearch} style={{ flex: 1, minWidth: 200 }}>
           <label htmlFor="map-search" className="visually-hidden">Search address or suburb</label>

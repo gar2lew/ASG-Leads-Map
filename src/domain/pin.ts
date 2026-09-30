@@ -1,5 +1,11 @@
 import { PinOutcome } from './pinOutcome'
 import type { OfficeId } from './roles'
+import type { LeadActivity } from './leadRegister'
+
+export interface PendingLeadActivity {
+  recordId: string
+  activity: LeadActivity
+}
 
 export interface Pin {
   id: string
@@ -16,6 +22,7 @@ export interface Pin {
   createdBy: string
   officeId?: OfficeId
   linkedLeadId?: string
+  pendingLeadActivity?: PendingLeadActivity
   source?: 'manual' | 'jotform'
   externalId?: string
   synced: boolean

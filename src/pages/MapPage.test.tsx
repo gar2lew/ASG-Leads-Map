@@ -5,6 +5,13 @@
 const mockPins: any[] = []
 let pinIdCounter = 0
 const markerEventListeners = new Map<string, Set<Function>>()
+const { mockSyncPendingPins, mockIsFirebaseConfigured, mockLeadRecords, mockAddLeadActivity, mockSubscribeLeadRecords } = vi.hoisted(() => ({
+  mockSyncPendingPins: vi.fn(),
+  mockIsFirebaseConfigured: vi.fn(() => false),
+  mockLeadRecords: [] as any[],
+  mockAddLeadActivity: vi.fn(),
+  mockSubscribeLeadRecords: vi.fn(),
+}))
 
 // ============================================
 // GEOCODING MOCK - Must use vi.hoisted for vi.mock factory access
@@ -254,6 +261,7 @@ vi.mock('../domain', async () => {
   const domainModule: any = {
     ...actual,
     getAllPins: vi.fn().mockImplementation(() => Promise.resolve([...mockPins])),
+    syncPendingPins: mockSyncPendingPins,
     savePin: vi.fn().mockImplementation((pin: any) => {
       const existingIndex = mockPins.findIndex(p => p.id === pin.id)
       if (existingIndex >= 0) {
@@ -332,13 +340,25 @@ vi.mock('../domain', async () => {
   return domainModule
 })
 
+vi.mock('../firebase/config', () => ({ isFirebaseConfigured: mockIsFirebaseConfigured }))
+vi.mock('../firebase/firestore', () => ({ getFirestoreDb: vi.fn(() => ({})) }))
+vi.mock('../domain/firestoreLeadRegisterRepository', () => ({
+  createFirestoreLeadRegisterRepository: vi.fn(() => ({
+    subscribeLeadRecords: mockSubscribeLeadRecords,
+    addLeadActivity: mockAddLeadActivity,
+    saveLeadRecord: vi.fn(),
+    updateLeadFromPin: vi.fn(),
+    setTimelyHandoff: vi.fn(),
+  })),
+}))
+
 // ============================================
 // AUTH MOCK - MapPage renders behind <RequireAuth /> in the app, but these
 // tests render it standalone, so provide a fixed signed-in admin.
 // ============================================
 
-vi.mock('../auth', () => ({
-  useCurrentUser: () => ({
+vi.mock('../auth', () => {
+  const currentUser = {
     id: 'test-admin',
     uid: 'test-admin',
     name: 'Test Admin',
@@ -346,8 +366,9 @@ vi.mock('../auth', () => ({
     email: 'admin@asg.local',
     role: 'super_admin',
     active: true,
-  }),
-}))
+  }
+  return { useCurrentUser: () => currentUser }
+})
 
 // ============================================
 // TEST HELPERS
@@ -363,8 +384,13 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vite
 import { act, render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { MapPage } from '../pages/MapPage'
 import * as maplibregl from 'maplibre-gl'
+
+beforeEach(() => {
+  mockSyncPendingPins.mockResolvedValue({ synced: 0, failed: 0 })
+})
 
 // Setup browser APIs in beforeAll
 beforeAll(() => {
@@ -1419,5 +1445,146 @@ describe('MapPage - Selected Pin Actions', () => {
     expect(within(sheet).getByRole('button', { name: /edit details/i })).toBeInTheDocument()
     expect(within(sheet).getByRole('button', { name: /delete pin/i })).toHaveClass('property-details__danger')
     expect(document.querySelector('.maplibregl-popup')).not.toBeInTheDocument()
+  })
+})
+
+describe('MapPage - shared map interactions', () => {
+  beforeEach(() => {
+    clearMapInstances()
+    mockPins.length = 0
+    mockLeadRecords.length = 0
+    markerEventListeners.clear()
+    vi.clearAllMocks()
+    mockIsFirebaseConfigured.mockReturnValue(false)
+    mockSubscribeLeadRecords.mockImplementation((onRecords: (records: any[]) => void) => {
+      onRecords([...mockLeadRecords])
+      return () => undefined
+    })
+    mockSyncPendingPins.mockResolvedValue({ synced: 0, failed: 0 })
+    mockAddLeadActivity.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    clearMapInstances()
+    mockPins.length = 0
+    mockLeadRecords.length = 0
+    vi.clearAllMocks()
+  })
+
+  it('selects and centers the shared pin requested by leadId after records load', async () => {
+    mockIsFirebaseConfigured.mockReturnValue(true)
+    mockLeadRecords.push({
+      id: 'shared-lead-1', leadId: 'external-1', leadName: 'Jordan Example', address: '9 Swan Street, Perth WA 6000',
+      phone: '0412 345 678', notes: '', date: '2026-09-30', callTimestamp: '2026-09-30T10:00', callResult: '',
+      updateLead: false, renterOwner: 'Owner', superannuation: '$75-150k', repName: 'Pat Rep', leadStatus: 'New',
+      office: 'perth', pinId: 'pin-for-lead', latitude: -31.95, longitude: 115.86, pinOutcome: 'lead',
+      qualification: 'new', timelySynced: false, activities: [],
+    })
+    render(<MemoryRouter initialEntries={['/map?leadId=shared-lead-1']}><MapPage /></MemoryRouter>)
+
+    expect(await screen.findByRole('complementary', { name: /property details/i })).toHaveTextContent('9 Swan Street, Perth WA 6000')
+    expect(getMapInstance().easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [115.86, -31.95] }))
+  })
+
+  it('runs a manual sync and reports partial failure so pending pins remain retryable', async () => {
+    const user = userEvent.setup()
+    mockPins.push({ id: 'pending-pin', latitude: -31.95, longitude: 115.86, outcome: 'knocked', synced: false })
+    mockSyncPendingPins.mockResolvedValue({ synced: 0, failed: 1 })
+    render(<BrowserRouter><MapPage /></BrowserRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /sync/i }))
+    expect(mockSyncPendingPins).toHaveBeenCalled()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/1 .*could not sync|sync failed/i)
+    expect(screen.getByRole('status', { name: /connection status/i })).toHaveTextContent(/1 change pending/i)
+  })
+
+  it('records one shared door-knock activity when an existing linked pin outcome changes', async () => {
+    const user = userEvent.setup()
+    mockIsFirebaseConfigured.mockReturnValue(true)
+    mockLeadRecords.push({
+      id: 'shared-lead-1', leadId: 'external-1', leadName: 'Jordan Example', address: '9 Swan Street, Perth WA 6000',
+      phone: '0412 345 678', notes: '', date: '2026-09-30', callTimestamp: '2026-09-30T10:00', callResult: '',
+      updateLead: false, renterOwner: 'Owner', superannuation: '$75-150k', repName: 'Pat Rep', leadStatus: 'New',
+      office: 'perth', pinId: 'linked-pin', latitude: -31.95, longitude: 115.86, pinOutcome: 'not_knocked',
+      qualification: 'new', timelySynced: false, activities: [],
+    })
+    mockPins.push({
+      id: 'linked-pin', linkedLeadId: 'shared-lead-1', latitude: -31.95, longitude: 115.86, outcome: 'not_knocked',
+      address: '9 Swan Street, Perth WA 6000', notes: '', contactName: 'Jordan Example', contactPhone: '0412 345 678',
+      createdAt: '2026-09-30T10:00:00.000Z', updatedAt: '2026-09-30T10:00:00.000Z', createdBy: 'test-admin', synced: true, syncAttempts: 0,
+    })
+    render(<BrowserRouter><MapPage /></BrowserRouter>)
+    await user.click(await screen.findByRole('button', { name: /pin: 9 swan street/i }))
+    await user.click(screen.getByRole('button', { name: /update outcome/i }))
+    await user.click(screen.getByLabelText(/^knocked$/i))
+    await user.click(screen.getByRole('checkbox', { name: /confirm this is the correct property address/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(mockAddLeadActivity).toHaveBeenCalledTimes(1))
+    expect(mockAddLeadActivity).toHaveBeenCalledWith('shared-lead-1', expect.objectContaining({ kind: 'door_knock', outcome: 'Knocked' }))
+  })
+
+  it('retries a failed shared activity with the same activity identity', async () => {
+    const user = userEvent.setup()
+    mockIsFirebaseConfigured.mockReturnValue(true)
+    mockLeadRecords.push({
+      id: 'shared-lead-1', leadId: 'external-1', leadName: 'Jordan Example', address: '9 Swan Street, Perth WA 6000',
+      phone: '0412 345 678', notes: '', date: '2026-09-30', callTimestamp: '2026-09-30T10:00', callResult: '',
+      updateLead: false, renterOwner: 'Owner', superannuation: '$75-150k', repName: 'Pat Rep', leadStatus: 'New',
+      office: 'perth', pinId: 'linked-pin', latitude: -31.95, longitude: 115.86, pinOutcome: 'not_knocked',
+      qualification: 'new', timelySynced: false, activities: [],
+    })
+    mockPins.push({
+      id: 'linked-pin', linkedLeadId: 'shared-lead-1', latitude: -31.95, longitude: 115.86, outcome: 'not_knocked',
+      address: '9 Swan Street, Perth WA 6000', notes: '', contactName: 'Jordan Example', contactPhone: '0412 345 678',
+      createdAt: '2026-09-30T10:00:00.000Z', updatedAt: '2026-09-30T10:00:00.000Z', createdBy: 'test-admin', synced: true, syncAttempts: 0,
+    })
+    mockAddLeadActivity.mockRejectedValueOnce(new Error('temporary network failure')).mockResolvedValueOnce(undefined)
+    render(<BrowserRouter><MapPage /></BrowserRouter>)
+    await user.click(await screen.findByRole('button', { name: /pin: 9 swan street/i }))
+    await user.click(screen.getByRole('button', { name: /update outcome/i }))
+    await user.click(screen.getByLabelText(/^knocked$/i))
+    await user.click(screen.getByRole('checkbox', { name: /confirm this is the correct property address/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/pin outcome saved, but the shared activity could not be confirmed/i)
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    await waitFor(() => expect(mockAddLeadActivity).toHaveBeenCalledTimes(2))
+    expect(mockAddLeadActivity.mock.calls[1]?.[1].id).toBe(mockAddLeadActivity.mock.calls[0]?.[1].id)
+  })
+
+  it('keeps a failed shared activity retryable after the map is remounted', async () => {
+    const user = userEvent.setup()
+    mockIsFirebaseConfigured.mockReturnValue(true)
+    mockLeadRecords.push({
+      id: 'shared-lead-1', leadId: 'external-1', leadName: 'Jordan Example', address: '9 Swan Street, Perth WA 6000',
+      phone: '0412 345 678', notes: '', date: '2026-09-30', callTimestamp: '2026-09-30T10:00', callResult: '',
+      updateLead: false, renterOwner: 'Owner', superannuation: '$75-150k', repName: 'Pat Rep', leadStatus: 'New',
+      office: 'perth', pinId: 'linked-pin', latitude: -31.95, longitude: 115.86, pinOutcome: 'not_knocked',
+      qualification: 'new', timelySynced: false, activities: [],
+    })
+    mockPins.push({
+      id: 'linked-pin', linkedLeadId: 'shared-lead-1', latitude: -31.95, longitude: 115.86, outcome: 'not_knocked',
+      address: '9 Swan Street, Perth WA 6000', notes: '', contactName: 'Jordan Example', contactPhone: '0412 345 678',
+      createdAt: '2026-09-30T10:00:00.000Z', updatedAt: '2026-09-30T10:00:00.000Z', createdBy: 'test-admin', synced: true, syncAttempts: 0,
+    })
+    mockAddLeadActivity.mockRejectedValueOnce(new Error('acknowledgement lost')).mockResolvedValueOnce(undefined)
+    const firstView = render(<BrowserRouter><MapPage /></BrowserRouter>)
+    await user.click(await screen.findByRole('button', { name: /pin: 9 swan street/i }))
+    await user.click(screen.getByRole('button', { name: /update outcome/i }))
+    await user.click(screen.getByLabelText(/^knocked$/i))
+    await user.click(screen.getByRole('checkbox', { name: /confirm this is the correct property address/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/pin outcome saved, but the shared activity could not be confirmed/i)
+    const activityId = mockAddLeadActivity.mock.calls[0]?.[1].id
+
+    firstView.unmount()
+    render(<BrowserRouter><MapPage /></BrowserRouter>)
+
+    await waitFor(() => expect(mockAddLeadActivity).toHaveBeenCalledTimes(2))
+    expect(mockAddLeadActivity.mock.calls[1]?.[1].id).toBe(activityId)
+    expect(mockAddLeadActivity.mock.calls[1]?.[0]).toBe('shared-lead-1')
+    expect(mockAddLeadActivity.mock.calls[1]?.[1]).toEqual(mockAddLeadActivity.mock.calls[0]?.[1])
+    await waitFor(() => expect(mockPins[0]?.pendingLeadActivity).toBeUndefined())
   })
 })
