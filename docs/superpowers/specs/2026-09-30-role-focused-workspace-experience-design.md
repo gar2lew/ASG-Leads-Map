@@ -1,6 +1,6 @@
 # ASG Role-Focused Workspace Experience Design
 
-**Date:** 30 September 2026  
+**Date:** 30 September 2026
 **Status:** Approved in conversation; awaiting written-spec review
 
 ## Intent
@@ -89,4 +89,3 @@ The first design pass is a presentation and interaction-hierarchy change. Do not
 2. Refine the Map workspace around map selection, property details, quick outcomes, and responsive field use.
 3. Refine the Call Centre around queue-first execution, lead context, timeline, and fast capture.
 4. Run regression, accessibility, theme, role, route/deep-link, and responsive checks; review both workspaces together in a preview before any production release.
-
