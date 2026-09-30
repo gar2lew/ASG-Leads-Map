@@ -22,6 +22,12 @@ The workspaces should feel like related parts of one ASG product, not one screen
 
 These products are workflow references only. ASG will use its own information architecture, visual language, terminology, and component composition; no competitor screen will be copied pixel-for-pixel.
 
+Reference material:
+
+- [SPOTIO field sales prospecting](https://spotio.com/features/field-sales-prospecting/) — territory coverage, prospect mapping, lead capture, and field activity.
+- [SalesRabbit SalesHub mobile workflow](https://help.salesrabbit.com/hc/en-us/articles/360003652093-3-SalesHub-Mobile-App) — map pin creation, lead detail panel, and status/notes updates.
+- [HubSpot prospecting queue](https://knowledge.hubspot.com/prospecting/use-the-prospecting-queue) — prioritized actions and contextual call/task handling.
+
 ## Recommended architecture
 
 Keep one React application, authentication model, shared lead data model, and deployment. Give the Map and Call Centre distinct page shells and navigation emphasis, while retaining a shared ASG identity and fast workspace switcher. Keep import, reporting, territory, and user administration in a quieter operations/admin navigation group rather than presenting every route as a peer of the daily workspaces.
