@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import { useCurrentUser, getAuthService } from '../auth'
 import { canViewReports, canManageSettings, canManageUsers, roleLabel, canManageTerritories } from '../domain'
 import { DEFAULT_WORKSPACE_STORAGE_KEY, getAvailableWorkspaces, type WorkspaceId } from '../domain/workspaces'
@@ -12,12 +12,18 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const currentUser = useCurrentUser()
+  const location = useLocation()
   const [theme, setTheme] = useState<AppTheme>(() => initialiseTheme())
-  const showReports = canViewReports(currentUser.role)
-  const showSettings = canManageSettings(currentUser.role)
-  const showAdminUsers = canManageUsers(currentUser.role)
-  const showAdminTerritories = canManageTerritories(currentUser.role)
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false)
   const dailyWorkspaces = getAvailableWorkspaces(currentUser).filter((workspace) => workspace.id !== 'import')
+  const canNavigate = dailyWorkspaces.length > 0
+  const showReports = canNavigate && canViewReports(currentUser.role)
+  const showSettings = canNavigate && canManageSettings(currentUser.role)
+  const showAdminUsers = canNavigate && canManageUsers(currentUser.role)
+  const showAdminTerritories = canNavigate && canManageTerritories(currentUser.role)
+  const showAdministration = showReports || showSettings || showAdminUsers || showAdminTerritories
+  const activeWorkspace = dailyWorkspaces.find((workspace) => location.pathname === workspace.landingRoute)
+  const workspaceLabel = (id: WorkspaceId) => id === 'map' ? 'Field Workspace' : 'Call Centre'
 
   const rememberWorkspace = (workspaceId: WorkspaceId) => {
     try {
@@ -39,7 +45,11 @@ export function Layout({ children }: LayoutProps) {
     const updatedTheme = nextTheme(theme)
     setTheme(updatedTheme)
     applyTheme(updatedTheme)
-    localStorage.setItem('asg-theme', updatedTheme)
+    try {
+      localStorage.setItem('asg-theme', updatedTheme)
+    } catch {
+      // Theme stays applied for this session when storage is disabled.
+    }
   }
 
   return (
@@ -60,6 +70,10 @@ export function Layout({ children }: LayoutProps) {
             />
             <span className="header__logo-text">ASG Leads Map</span>
           </NavLink>
+          <div className="header__workspace-group">
+          <span className="header__current-workspace" aria-label="Current workspace">
+            {activeWorkspace ? workspaceLabel(activeWorkspace.id) : 'Operations'}
+          </span>
           <nav className="header__nav header__workspace-nav" aria-label="Workspaces">
             <ul className="header__nav-list">
               {dailyWorkspaces.map((workspace) => (
@@ -69,19 +83,34 @@ export function Layout({ children }: LayoutProps) {
                     onClick={() => rememberWorkspace(workspace.id)}
                     className={({ isActive }) => `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
                   >
-                    {workspace.title}
+                    {workspaceLabel(workspace.id)}
                   </NavLink>
                 </li>
               ))}
             </ul>
           </nav>
-          {(showReports || showAdminUsers || showAdminTerritories || showSettings) && (
-          <nav className="header__nav header__admin-nav" aria-label="Administration">
+          </div>
+          {showAdministration && (
+          <div className="header__admin-menu" onKeyDown={(event) => {
+            if (event.key === 'Escape') setAdminMenuOpen(false)
+          }}>
+          <button
+            className="header__admin-trigger"
+            type="button"
+            aria-label="Administration"
+            aria-expanded={adminMenuOpen}
+            aria-controls="administration-menu"
+            onClick={() => setAdminMenuOpen((open) => !open)}
+          >
+            Administration <span aria-hidden="true">⌄</span>
+          </button>
+          {adminMenuOpen && <nav id="administration-menu" className="header__admin-nav" aria-label="Administration">
             <ul className="header__nav-list">
               {showReports && (
                 <li>
                   <NavLink
                     to="/dashboard"
+                    onClick={() => setAdminMenuOpen(false)}
                     className={({ isActive }) =>
                       `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
                   >
@@ -93,6 +122,7 @@ export function Layout({ children }: LayoutProps) {
                 <li>
                   <NavLink
                     to="/admin/users"
+                    onClick={() => setAdminMenuOpen(false)}
                     className={({ isActive }) =>
                       `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
                   >
@@ -104,6 +134,7 @@ export function Layout({ children }: LayoutProps) {
                               <li>
                                 <NavLink
                                   to="/admin/import"
+                                  onClick={() => setAdminMenuOpen(false)}
                                   className={({ isActive }) =>
                                     `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
                                 >
@@ -115,6 +146,7 @@ export function Layout({ children }: LayoutProps) {
                               <li>
                                 <NavLink
                                   to="/admin/territories"
+                                  onClick={() => setAdminMenuOpen(false)}
                                   className={({ isActive }) =>
                                     `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
                                 >
@@ -126,6 +158,7 @@ export function Layout({ children }: LayoutProps) {
                 <li>
                   <NavLink
                     to="/settings"
+                    onClick={() => setAdminMenuOpen(false)}
                     className={({ isActive }) =>
                       `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`}
                   >
@@ -134,7 +167,8 @@ export function Layout({ children }: LayoutProps) {
                 </li>
               )}
             </ul>
-          </nav>
+          </nav>}
+          </div>
           )}
           <div className="header__actions">
             <button
@@ -180,7 +214,7 @@ export function Layout({ children }: LayoutProps) {
           <p className="app__footer-text">ASG Leads Map Pins &copy; 2026</p>
         </div>
       </footer>
-      <nav className="app__mobile-nav" aria-label="Field navigation">
+      <nav className="app__mobile-nav" aria-label="Workspace navigation">
         {dailyWorkspaces.map((workspace) => (
           <NavLink
             key={workspace.id}
@@ -188,66 +222,9 @@ export function Layout({ children }: LayoutProps) {
             onClick={() => rememberWorkspace(workspace.id)}
             className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
           >
-            <span>{workspace.title}</span>
+            <span>{workspaceLabel(workspace.id)}</span>
           </NavLink>
         ))}
-        {showReports && (
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M4 19V9M10 19V5M16 19v-7M22 19V3" />
-            </svg>
-            <span>Dashboard</span>
-          </NavLink>
-        )}
-        {showAdminUsers && (
-                  <NavLink
-                    to="/admin/users"
-                    className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                    <span>Admin Users</span>
-                  </NavLink>
-                )}
-        {showAdminUsers && (
-          <NavLink
-            to="/admin/import"
-            className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
-          >
-            <span>Import Leads</span>
-          </NavLink>
-        )}
-                {showAdminTerritories && (
-                  <NavLink
-                    to="/admin/territories"
-                    className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M21 10V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3" />
-                      <path d="M3 14h18" />
-                      <path d="M12 14v8" />
-                    </svg>
-                    <span>Territories</span>
-                  </NavLink>
-                )}
-                {showSettings && (
-          <NavLink
-            to="/settings"
-            className={({ isActive }) => `app__mobile-nav-link ${isActive ? 'app__mobile-nav-link--active' : ''}`}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0ZM12 2v3M12 19v3M2 12h3M19 12h3" />
-            </svg>
-            <span>Settings</span>
-          </NavLink>
-        )}
       </nav>
     </div>
   )

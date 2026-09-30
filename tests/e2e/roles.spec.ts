@@ -21,6 +21,7 @@ test.describe('Role-based access control (dev roles)', () => {
   test('admin sees Dashboard and Settings navigation and Export CSV', async ({ page }) => {
     const errors = collectConsoleErrors(page);
 
+    await page.getByRole('button', { name: 'Administration' }).click();
     await expect(page.getByRole('navigation', { name: 'Administration' })).toContainText('Dashboard');
     await expect(page.getByRole('navigation', { name: 'Administration' })).toContainText('Settings');
     await expect(page.getByRole('navigation', { name: 'Workspaces' })).toContainText('Call Centre');
@@ -37,6 +38,7 @@ test.describe('Role-based access control (dev roles)', () => {
     await waitForMapReady(page);
     const errors = collectConsoleErrors(page);
 
+    await page.getByRole('button', { name: 'Administration' }).click();
     await expect(page.getByRole('navigation', { name: 'Administration' })).toContainText('Dashboard');
     await expect(page.getByRole('navigation', { name: 'Administration' })).not.toContainText('Settings');
     await expect(page.getByRole('navigation', { name: 'Workspaces' })).toContainText('Call Centre');
@@ -53,9 +55,9 @@ test.describe('Role-based access control (dev roles)', () => {
     await waitForMapReady(page);
     const errors = collectConsoleErrors(page);
 
-    await expect(page.getByRole('navigation', { name: 'Workspaces' })).toContainText('Field Map');
+    await expect(page.getByRole('navigation', { name: 'Workspaces' })).toContainText('Field Workspace');
     await expect(page.getByRole('navigation', { name: 'Workspaces' })).toContainText('Call Centre');
-    await expect(page.getByRole('navigation', { name: 'Administration' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Administration' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /export csv/i })).not.toBeVisible();
     await expect(page.getByRole('button', { name: /add pin/i })).toBeVisible();
     await expect(page.locator('.header__user-name')).toHaveText('Rep User');

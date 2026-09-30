@@ -5,10 +5,11 @@ import { Role, type CurrentUser } from '../domain/roles'
 import { semanticThemeTokens } from '../theme/themeTokens'
 import { Layout } from './Layout'
 
-let currentUser: CurrentUser = {
+const repUser: CurrentUser = {
   id: 'rep', uid: 'rep', name: 'Field Rep', displayName: 'Field Rep',
   email: 'rep@example.com', role: Role.Rep, active: true,
 }
+let currentUser: CurrentUser = repUser
 
 vi.mock('../auth', () => ({
   useCurrentUser: () => currentUser,
@@ -17,10 +18,53 @@ vi.mock('../auth', () => ({
 
 afterEach(() => {
   localStorage.clear()
-  currentUser = { ...currentUser, role: Role.Rep }
+  currentUser = repUser
 })
 
 describe('signed-in workspace navigation', () => {
+  it('showsDailyWorkspaceSwitcher', () => {
+    render(<MemoryRouter initialEntries={['/map']}><Layout><div>Workspace content</div></Layout></MemoryRouter>)
+
+    expect(screen.getByLabelText('Current workspace')).toHaveTextContent('Field Workspace')
+    const switcher = screen.getByRole('navigation', { name: 'Workspaces' })
+    expect(within(switcher).getByRole('link', { name: 'Field Workspace' })).toHaveAttribute('href', '/map')
+    expect(within(switcher).getByRole('link', { name: 'Call Centre' })).toHaveAttribute('href', '/calls')
+    expect(within(switcher).getByRole('link', { name: 'Field Workspace' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('groupsCapabilityFilteredAdminLinks', () => {
+    currentUser = { ...currentUser, role: Role.SuperAdmin }
+    render(<MemoryRouter initialEntries={['/calls']}><Layout><div>Workspace content</div></Layout></MemoryRouter>)
+
+    const switcher = screen.getByRole('navigation', { name: 'Workspaces' })
+    expect(switcher).not.toHaveTextContent('Import Leads')
+    expect(screen.getByRole('button', { name: 'Administration' })).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(screen.getByRole('button', { name: 'Administration' }))
+    const admin = screen.getByRole('navigation', { name: 'Administration' })
+    expect(within(admin).getByRole('link', { name: 'Import Leads' })).toHaveAttribute('href', '/admin/import')
+    expect(within(admin).getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
+  })
+
+  it('hidesRestrictedLinksUntilCapabilitiesResolve', () => {
+    currentUser = { ...currentUser, role: Role.SuperAdmin, active: false }
+    render(<MemoryRouter initialEntries={['/map']}><Layout><div>Workspace content</div></Layout></MemoryRouter>)
+
+    expect(screen.queryByRole('button', { name: 'Administration' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Import Leads' })).not.toBeInTheDocument()
+    expect(within(screen.getByRole('navigation', { name: 'Workspaces' })).queryAllByRole('link')).toHaveLength(0)
+  })
+
+  it('persistsThemeChoice', () => {
+    localStorage.setItem('asg-theme', 'light')
+    render(<MemoryRouter initialEntries={['/map']}><Layout><div>Workspace content</div></Layout></MemoryRouter>)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }))
+
+    expect(localStorage.getItem('asg-theme')).toBe('dark')
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    expect(document.documentElement.style.getPropertyValue('--asg-theme-canvas')).toBe(semanticThemeTokens.dark.canvas)
+  })
+
   it('layoutThemeToggleAppliesAllSemanticColors', () => {
     localStorage.setItem('asg-theme', 'light')
     render(<MemoryRouter initialEntries={['/map']}><Layout><div>Workspace content</div></Layout></MemoryRouter>)
@@ -50,7 +94,8 @@ describe('signed-in workspace navigation', () => {
     render(<MemoryRouter initialEntries={['/map']}><Layout><div>Workspace content</div></Layout></MemoryRouter>)
 
     expect(screen.getByRole('navigation', { name: 'Workspaces' })).not.toHaveTextContent('Import')
+    fireEvent.click(screen.getByRole('button', { name: 'Administration' }))
     expect(screen.getByRole('navigation', { name: 'Administration' })).toHaveTextContent('Import Leads')
-    expect(within(screen.getByRole('navigation', { name: 'Field navigation' })).getByRole('link', { name: 'Import Leads' })).toHaveAttribute('href', '/admin/import')
+    expect(within(screen.getByRole('navigation', { name: 'Workspace navigation' })).queryByRole('link', { name: 'Import Leads' })).not.toBeInTheDocument()
   })
 })
